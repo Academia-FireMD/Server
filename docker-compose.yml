@@ -3,7 +3,7 @@ services:
   uruk-back:
     build:
       context: .
-    image: urukbartas1488/urukserver
+    image: tihomir619/academiafiremd
     ports:
       - '3005:3000'
     environment:
