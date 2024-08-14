@@ -63,7 +63,9 @@ model Usuario {
   id           Int      @id @default(autoincrement())
   email        String   @unique
   contrasenya  String
-  rol          Rol
+  rol          Rol @default(ALUMNO)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   tests        Test[]
 }

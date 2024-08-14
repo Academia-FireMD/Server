@@ -10,14 +10,35 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
+const passport_1 = require("@nestjs/passport");
+const jwt_1 = require("@nestjs/jwt");
+const auth_service_1 = require("./servicios/auth.service");
+const user_service_1 = require("./servicios/user.service");
+const prisma_service_1 = require("./servicios/prisma.service");
+const jwt_strategy_1 = require("./jwt/jwt.strategy");
+const auth_controller_1 = require("./controladores/auth.controller");
+const config_1 = require("@nestjs/config");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [],
-        controllers: [app_controller_1.AppController],
-        providers: [app_service_1.AppService],
+        imports: [
+            passport_1.PassportModule,
+            jwt_1.JwtModule.register({
+                secret: process.env.JWT_SECRET,
+                signOptions: { expiresIn: '60m' },
+            }),
+        ],
+        controllers: [app_controller_1.AppController, auth_controller_1.AuthController],
+        providers: [
+            config_1.ConfigService,
+            app_service_1.AppService,
+            auth_service_1.AuthService,
+            user_service_1.UsersService,
+            prisma_service_1.PrismaService,
+            jwt_strategy_1.JwtStrategy,
+        ],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map
