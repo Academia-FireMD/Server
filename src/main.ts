@@ -1,6 +1,6 @@
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,6 +12,7 @@ async function bootstrap() {
     'http://localhost:8080',
     'http://localhost:8100',
     'http://localhost:4200',
+    'https://academiamd.netlify.app',
   ];
   app.enableCors({
     origin: [process.env.FRONT_ENDPOINT, ...allowedOrigins],
