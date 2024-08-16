@@ -1,4 +1,3 @@
-import { User } from '@auth0/auth0-angular';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Usuario } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
@@ -7,7 +6,7 @@ import { PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
-export class UsersService extends PaginatedService<User> {
+export class UsersService extends PaginatedService<Usuario> {
   constructor(protected prisma: PrismaService) {
     super(prisma);
   }
