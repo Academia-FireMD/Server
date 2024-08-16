@@ -18,6 +18,7 @@ const prisma_service_1 = require("./servicios/prisma.service");
 const jwt_strategy_1 = require("./jwt/jwt.strategy");
 const auth_controller_1 = require("./controladores/auth.controller");
 const config_1 = require("@nestjs/config");
+const user_controller_1 = require("./controladores/user.controller");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -30,7 +31,7 @@ exports.AppModule = AppModule = __decorate([
                 signOptions: { expiresIn: '60m' },
             }),
         ],
-        controllers: [app_controller_1.AppController, auth_controller_1.AuthController],
+        controllers: [app_controller_1.AppController, auth_controller_1.AuthController, user_controller_1.UserController],
         providers: [
             config_1.ConfigService,
             app_service_1.AppService,

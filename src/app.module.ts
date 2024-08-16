@@ -9,6 +9,7 @@ import { PrismaService } from './servicios/prisma.service';
 import { JwtStrategy } from './jwt/jwt.strategy';
 import { AuthController } from './controladores/auth.controller';
 import { ConfigService } from '@nestjs/config';
+import { UserController } from './controladores/user.controller';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { ConfigService } from '@nestjs/config';
       signOptions: { expiresIn: '60m' },
     }),
   ],
-  controllers: [AppController, AuthController],
+  controllers: [AppController, AuthController, UserController],
   providers: [
     ConfigService,
     AppService,
