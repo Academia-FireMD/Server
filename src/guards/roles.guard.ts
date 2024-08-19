@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   SetMetadata,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
@@ -33,8 +34,14 @@ export class RolesGuard implements CanActivate {
     if (!token) {
       throw new ForbiddenException('Acceso denegado');
     }
-
-    const payload = this.jwtService.verify(token);
+    let payload;
+    try {
+      payload = this.jwtService.verify(token);
+    } catch (error) {
+      const errorResult =
+        error.name == 'TokenExpiredError' ? 'La sesión ha expirado' : error;
+      throw new UnauthorizedException(errorResult);
+    }
     const userRole = payload.rol;
 
     const allowAccess = requiredRoles.includes(userRole);

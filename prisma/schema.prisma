@@ -54,9 +54,11 @@ model Pregunta {
   solucion              String
   respuestas            String[]
   respuestaCorrectaIndex Int
-  seguridad             SeguridadAlResponder
+  seguridad             SeguridadAlResponder? @default(CIEN_POR_CIENTO)
 
   tests                 Test[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Usuario {
@@ -70,4 +72,11 @@ model Usuario {
   tests        Test[]
 }
 
+enum FactorName {
+  PREGUNTAS_MALAS_PIVOT
+}
 
+model Factor {
+  id    FactorName @id
+  value Int
+}

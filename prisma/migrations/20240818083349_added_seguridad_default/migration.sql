@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Pregunta" ALTER COLUMN "seguridad" DROP NOT NULL,
+ALTER COLUMN "seguridad" SET DEFAULT 'CIEN_POR_CIENTO';
