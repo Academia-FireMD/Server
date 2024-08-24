@@ -16,12 +16,14 @@ const app_service_1 = require("./app.service");
 const auth_controller_1 = require("./controladores/auth.controller");
 const factor_controller_1 = require("./controladores/factor.controller");
 const preguntas_controller_1 = require("./controladores/preguntas.controller");
+const test_controller_1 = require("./controladores/test.controller");
 const user_controller_1 = require("./controladores/user.controller");
 const jwt_strategy_1 = require("./jwt/jwt.strategy");
 const auth_service_1 = require("./servicios/auth.service");
 const factor_service_1 = require("./servicios/factor.service");
 const preguntas_service_1 = require("./servicios/preguntas.service");
 const prisma_service_1 = require("./servicios/prisma.service");
+const test_service_1 = require("./servicios/test.service");
 const user_service_1 = require("./servicios/user.service");
 let AppModule = class AppModule {
 };
@@ -41,6 +43,7 @@ exports.AppModule = AppModule = __decorate([
             user_controller_1.UserController,
             preguntas_controller_1.PreguntasController,
             factor_controller_1.FactorController,
+            test_controller_1.TestController,
         ],
         providers: [
             config_1.ConfigService,
@@ -50,7 +53,9 @@ exports.AppModule = AppModule = __decorate([
             preguntas_service_1.PreguntasService,
             prisma_service_1.PrismaService,
             jwt_strategy_1.JwtStrategy,
+            test_service_1.TestService,
             factor_service_1.FactorService,
+            test_service_1.RespuestaPaginatedService,
         ],
     })
 ], AppModule);

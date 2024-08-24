@@ -7,12 +7,17 @@ import { AppService } from './app.service';
 import { AuthController } from './controladores/auth.controller';
 import { FactorController } from './controladores/factor.controller';
 import { PreguntasController } from './controladores/preguntas.controller';
+import { TestController } from './controladores/test.controller';
 import { UserController } from './controladores/user.controller';
 import { JwtStrategy } from './jwt/jwt.strategy';
 import { AuthService } from './servicios/auth.service';
 import { FactorService } from './servicios/factor.service';
 import { PreguntasService } from './servicios/preguntas.service';
 import { PrismaService } from './servicios/prisma.service';
+import {
+  RespuestaPaginatedService,
+  TestService,
+} from './servicios/test.service';
 import { UsersService } from './servicios/user.service';
 
 @Module({
@@ -29,6 +34,7 @@ import { UsersService } from './servicios/user.service';
     UserController,
     PreguntasController,
     FactorController,
+    TestController,
   ],
   providers: [
     ConfigService,
@@ -38,7 +44,9 @@ import { UsersService } from './servicios/user.service';
     PreguntasService,
     PrismaService,
     JwtStrategy,
+    TestService,
     FactorService,
+    RespuestaPaginatedService,
   ],
 })
 export class AppModule {}

@@ -18,6 +18,7 @@ export abstract class PaginatedService<T> {
   public async getPaginatedData(
     dto: PaginationDto,
     where: object = {},
+    include: object = {},
   ): Promise<PaginatedResult<T>> {
     const modelName = this.getModelName();
 
@@ -30,6 +31,7 @@ export abstract class PaginatedService<T> {
           where,
           take: dto.take,
           skip: dto.skip,
+          include,
           orderBy: {
             createdAt: 'desc',
           },
