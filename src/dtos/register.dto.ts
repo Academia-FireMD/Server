@@ -1,5 +1,7 @@
+import { Comunidad } from '@prisma/client';
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsString,
   Matches,
@@ -21,4 +23,10 @@ export class RegisterDto {
     },
   )
   password: string;
+
+  @IsEnum(Comunidad, {
+    message: 'La comunidad seleccionada no es válida',
+  })
+  @IsNotEmpty({ message: 'La comunidad es obligatoria' })
+  comunidad: Comunidad;
 }

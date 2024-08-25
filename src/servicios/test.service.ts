@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
+  Comunidad,
   Dificultad,
   Pregunta,
   Respuesta,
@@ -293,7 +294,11 @@ export class TestService {
     });
   }
 
-  public async startTest(userId: number, dto: NewTestDto) {
+  public async startTest(
+    userId: number,
+    dto: NewTestDto,
+    userComunidad: Comunidad,
+  ) {
     // Verificar si el usuario tiene tests en progreso o creados
     const testEnProgreso = await this.prisma.test.findFirst({
       where: {
@@ -346,6 +351,9 @@ export class TestService {
       preguntasDisponibles = await this.prisma.pregunta.findMany({
         where: {
           tema: { in: dto.temas },
+          relevancia: {
+            has: userComunidad,
+          },
         },
       });
 

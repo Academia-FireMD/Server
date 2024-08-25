@@ -43,13 +43,13 @@ export class RolesGuard implements CanActivate {
       throw new UnauthorizedException(errorResult);
     }
     const userRole = payload.rol;
-
     const allowAccess = requiredRoles.includes(userRole);
     if (!allowAccess) throw new ForbiddenException('Acceso denegado');
     request.user = {
       id: payload.sub,
       email: payload.email,
       role: userRole,
+      comunidad: payload.comunidad,
     };
     return allowAccess;
   }

@@ -21,6 +21,7 @@ const user_controller_1 = require("./controladores/user.controller");
 const jwt_strategy_1 = require("./jwt/jwt.strategy");
 const auth_service_1 = require("./servicios/auth.service");
 const factor_service_1 = require("./servicios/factor.service");
+const feedback_service_1 = require("./servicios/feedback.service");
 const preguntas_service_1 = require("./servicios/preguntas.service");
 const prisma_service_1 = require("./servicios/prisma.service");
 const test_service_1 = require("./servicios/test.service");
@@ -56,6 +57,7 @@ exports.AppModule = AppModule = __decorate([
             test_service_1.TestService,
             factor_service_1.FactorService,
             test_service_1.RespuestaPaginatedService,
+            feedback_service_1.FeedbackService
         ],
     })
 ], AppModule);

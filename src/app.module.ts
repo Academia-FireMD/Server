@@ -12,6 +12,7 @@ import { UserController } from './controladores/user.controller';
 import { JwtStrategy } from './jwt/jwt.strategy';
 import { AuthService } from './servicios/auth.service';
 import { FactorService } from './servicios/factor.service';
+import { FeedbackService } from './servicios/feedback.service';
 import { PreguntasService } from './servicios/preguntas.service';
 import { PrismaService } from './servicios/prisma.service';
 import {
@@ -47,6 +48,7 @@ import { UsersService } from './servicios/user.service';
     TestService,
     FactorService,
     RespuestaPaginatedService,
+    FeedbackService
   ],
 })
 export class AppModule {}

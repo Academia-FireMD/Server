@@ -44,11 +44,11 @@ enum TestStatus {
 
 model Test {
   id            Int            @id @default(autoincrement())
-  testPreguntas TestPregunta[] 
+  testPreguntas TestPregunta[]
   realizador    Usuario        @relation(fields: [realizadorId], references: [id])
   realizadorId  Int
   status        TestStatus     @default(CREADO)
-  respuestas    Respuesta[]    
+  respuestas    Respuesta[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -64,10 +64,11 @@ model Pregunta {
   respuestas             String[]
   respuestaCorrectaIndex Int
   seguridad              SeguridadAlResponder? @default(CIEN_POR_CIENTO)
-  testPreguntas          TestPregunta[] 
+  testPreguntas          TestPregunta[]
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   Respuesta              Respuesta[]
+  Feedback      Feedback[]
 }
 
 model TestPregunta {
@@ -93,15 +94,30 @@ model Respuesta {
 }
 
 model Usuario {
-  id          Int      @id @default(autoincrement())
-  email       String   @unique
+  id          Int        @id @default(autoincrement())
+  email       String     @unique
   contrasenya String
-  rol         Rol      @default(ALUMNO)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  validated   Boolean  @default(false)
+  rol         Rol        @default(ALUMNO)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  validated   Boolean    @default(false)
   tests       Test[]
+  comunidad   Comunidad  @default(VALENCIA)
+  Feedback    Feedback[]
 }
+
+model Feedback {
+  id                  Int       @id @default(autoincrement())
+  pregunta            Pregunta  @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  preguntaId          Int
+  usuario             Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId           Int
+  dificultadPercibida Dificultad
+  comentario          String?   // Campo opcional para comentarios adicionales del usuario
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
 
 enum FactorName {
   PREGUNTAS_MALAS_PIVOT

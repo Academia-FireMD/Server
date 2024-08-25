@@ -1,15 +1,15 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Post,
-  Body,
   UnauthorizedException,
-  BadRequestException,
 } from '@nestjs/common';
-import { AuthService } from 'src/servicios/auth.service';
-import { UsersService } from 'src/servicios/user.service';
 import { validate } from 'class-validator';
 import { LoginDto } from 'src/dtos/login.dto';
 import { RegisterDto } from 'src/dtos/register.dto';
+import { AuthService } from 'src/servicios/auth.service';
+import { UsersService } from 'src/servicios/user.service';
 
 @Controller('auth')
 export class AuthController {
@@ -20,8 +20,8 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() body: RegisterDto) {
-    const { email, password } = body;
-    await this.usersService.createUser(email, password);
+    const { email, password, comunidad } = body;
+    await this.usersService.createUser(email, password, comunidad);
     return { message: 'Usuario registrado exitosamente' };
   }
 

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Usuario } from '@prisma/client';
+import { Comunidad, Usuario } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { PaginatedService } from './paginated.service';
@@ -11,10 +11,15 @@ export class UsersService extends PaginatedService<Usuario> {
     super(prisma);
   }
 
-  async createUser(email: string, password: string): Promise<Usuario> {
+  async createUser(
+    email: string,
+    password: string,
+    comunidad: Comunidad,
+  ): Promise<Usuario> {
     const foundEmail = await this.prisma.usuario.findUnique({
       where: {
         email,
+        comunidad,
       },
     });
     if (!!foundEmail)
@@ -24,6 +29,7 @@ export class UsersService extends PaginatedService<Usuario> {
       data: {
         email,
         contrasenya: hashedPassword,
+        comunidad,
       },
     });
   }
