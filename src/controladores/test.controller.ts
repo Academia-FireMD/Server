@@ -55,8 +55,9 @@ export class TestController {
 
   @Roles(Rol.ALUMNO)
   @Post('registrar-respuesta')
-  async registrarRespuesta(@Body() dto: RegistrarRespuestaDto) {
-    return this.service.registrarRespuesta(dto);
+  async registrarRespuesta(@Body() dto: RegistrarRespuestaDto, @Request() req) {
+    const { id } = req.user;
+    return this.service.registrarRespuesta(dto, id);
   }
 
   @Roles(Rol.ALUMNO)

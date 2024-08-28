@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   Comunidad,
   Dificultad,
+  FactorName,
   Pregunta,
   Respuesta,
   SeguridadAlResponder,
@@ -211,7 +212,10 @@ export class TestService {
     }));
   }
 
-  public async registrarRespuesta(dto: RegistrarRespuestaDto) {
+  public async registrarRespuesta(
+    dto: RegistrarRespuestaDto,
+    usuarioId: number,
+  ) {
     const pregunta = await this.prisma.pregunta.findUnique({
       where: { id: dto.preguntaId },
     });
@@ -234,6 +238,40 @@ export class TestService {
         },
       },
     });
+
+    const factorPivot = await this.prisma.factor.findUnique({
+      where: { id: FactorName.PREGUNTAS_MALAS_PIVOT },
+    });
+
+    const ultimasRespuestas = await this.prisma.respuesta.findMany({
+      where: {
+        test: {
+          realizadorId: usuarioId,
+        },
+        preguntaId: dto.preguntaId,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: factorPivot.value ?? 5,
+    });
+
+    const todasCorrectas = ultimasRespuestas.every(
+      (respuesta) => respuesta.esCorrecta,
+    );
+
+    if (todasCorrectas && ultimasRespuestas.length === factorPivot.value) {
+      // Eliminar las respuestas incorrectas de esta pregunta si todas las últimas N fueron correctas
+      await this.prisma.respuesta.deleteMany({
+        where: {
+          test: {
+            realizadorId: usuarioId,
+          },
+          preguntaId: dto.preguntaId,
+          esCorrecta: false,
+        },
+      });
+    }
 
     const foundCreatedTest = await this.prisma.test.findFirst({
       where: {
@@ -350,7 +388,7 @@ export class TestService {
       // Obtener preguntas disponibles según los filtros normales
       preguntasDisponibles = await this.prisma.pregunta.findMany({
         where: {
-          tema: { in: dto.temas },
+          // TODO tema: { in: dto.temas },
           relevancia: {
             has: userComunidad,
           },

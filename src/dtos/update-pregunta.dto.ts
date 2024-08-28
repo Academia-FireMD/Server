@@ -2,6 +2,7 @@ import { Comunidad, Dificultad, SeguridadAlResponder } from '@prisma/client';
 import {
   ArrayMinSize,
   IsArray,
+  IsDefined,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -35,8 +36,8 @@ export class CreatePreguntaDto {
   dificultad?: Dificultad;
 
   @IsOptional()
-  @IsInt({ message: 'El tema debe ser un número entero.' })
-  tema?: number;
+  @IsInt({ message: 'El id del tema debe ser un número entero.' })
+  temaId?: number;
 
   @IsOptional()
   @IsString({ message: 'La descripción debe ser una cadena de texto.' })
@@ -58,7 +59,12 @@ export class CreatePreguntaDto {
   })
   respuestas?: string[];
 
-  @IsOptional()
+  @IsDefined({
+    message: 'El índice de la respuesta correcta es obligatorio.',
+  })
+  @IsNotEmpty({
+    message: 'El índice de la respuesta correcta no puede estar vacío.',
+  })
   @IsInt({
     message: 'El índice de la respuesta correcta debe ser un número entero.',
   })

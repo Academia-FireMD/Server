@@ -7,7 +7,7 @@ import {
   Post,
   UploadedFile,
   UseGuards,
-  UseInterceptors
+  UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Rol } from '@prisma/client';
@@ -41,10 +41,9 @@ export class PreguntasController {
     return this.service.deletePregunta(id);
   }
 
-  @Roles(Rol.ADMIN)
   @Get('/get-temas')
   async getTemas() {
-    return this.service.getDistinctTemas();
+    return this.service.getTemas();
   }
 
   @Roles(Rol.ADMIN)

@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { Comunidad, Dificultad, Pregunta } from '@prisma/client';
-import { from, map } from 'rxjs';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   CreatePreguntaDto,
@@ -36,11 +35,15 @@ export class PreguntasService extends PaginatedService<Pregunta> {
   }
 
   public getAllPreguntas(dto: PaginationDto) {
-    return this.getPaginatedData(dto, {
-      identificador: {
-        contains: dto.searchTerm ?? '',
+    return this.getPaginatedData(
+      dto,
+      {
+        identificador: {
+          contains: dto.searchTerm ?? '',
+        },
       },
-    });
+      { tema: true },
+    );
   }
 
   public updatePregunta(dto: UpdatePreguntaDto | CreatePreguntaDto) {
@@ -53,7 +56,11 @@ export class PreguntasService extends PaginatedService<Pregunta> {
           identificador: dto.identificador,
           relevancia: dto.relevancia,
           dificultad: dto.dificultad,
-          tema: dto.tema,
+          tema: {
+            connect: {
+              id: dto.temaId,
+            },
+          },
           descripcion: dto.descripcion,
           solucion: dto.solucion,
           respuestas: dto.respuestas,
@@ -67,7 +74,11 @@ export class PreguntasService extends PaginatedService<Pregunta> {
           identificador: dto.identificador,
           relevancia: dto.relevancia,
           dificultad: dto.dificultad,
-          tema: dto.tema,
+          tema: {
+            connect: {
+              id: dto.temaId,
+            },
+          },
           descripcion: dto.descripcion,
           solucion: dto.solucion,
           respuestas: dto.respuestas,
@@ -78,15 +89,8 @@ export class PreguntasService extends PaginatedService<Pregunta> {
     }
   }
 
-  public getDistinctTemas() {
-    return from(
-      this.prisma.pregunta.findMany({
-        select: {
-          tema: true,
-        },
-        distinct: ['tema'],
-      }),
-    ).pipe(map((entry) => entry.map((entryInner) => entryInner.tema)));
+  public getTemas() {
+    return this.prisma.tema.findMany({});
   }
 
   public async importarExcel(file: Express.Multer.File) {
@@ -97,6 +101,10 @@ export class PreguntasService extends PaginatedService<Pregunta> {
     const jsonData = XLSX.utils.sheet_to_json(sheet);
 
     for (const entry of jsonData) {
+      if (!entry['identificador']) {
+        console.log('No hay identificador, ignorando');
+        continue;
+      }
       const existingPregunta = await this.prisma.pregunta.findUnique({
         where: { identificador: entry['identificador'].toString() },
       });
@@ -107,6 +115,23 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         );
         continue; // Si ya existe, ignorar esta entrada y continuar con la siguiente
       }
+
+      let temaExistente = await this.prisma.tema.findFirst({
+        where: {
+          numero: parseInt(entry['Tema'], 10),
+        },
+      });
+
+      if (!temaExistente) {
+        temaExistente = await this.prisma.tema.create({
+          data: {
+            numero: parseInt(entry['Tema'], 10),
+            descripcion: entry['Descripción Tema'],
+            categoria: entry['Categoría'],
+          },
+        });
+      }
+
       const respuestasArray: string[] = [
         entry['Answer 1'],
         entry['Answer 2'],
@@ -140,7 +165,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
           solucion: entry['Solución'] ?? '',
           respuestas: respuestasArray,
           respuestaCorrectaIndex: parseInt(entry['Correct answer'], 10) - 1,
-          tema: parseInt(entry['Tema'], 10),
+          temaId: temaExistente.id,
           dificultad: dificultadEnum,
           relevancia: relevanciaArray,
         },

@@ -58,7 +58,8 @@ model Pregunta {
   identificador          String                @unique
   relevancia             Comunidad[]
   dificultad             Dificultad
-  tema                   Int
+  tema                   Tema                @relation(fields: [temaId], references: [id])
+  temaId                 Int
   descripcion            String
   solucion               String
   respuestas             String[]
@@ -68,7 +69,15 @@ model Pregunta {
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   Respuesta              Respuesta[]
-  Feedback      Feedback[]
+  Feedback               Feedback[]
+}
+
+model Tema {
+  id          Int        @id @default(autoincrement())
+  numero      Int
+  descripcion String?
+  categoria   String?
+  preguntas   Pregunta[] // Relación con Pregunta
 }
 
 model TestPregunta {
@@ -107,17 +116,16 @@ model Usuario {
 }
 
 model Feedback {
-  id                  Int       @id @default(autoincrement())
-  pregunta            Pregunta  @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  id                  Int        @id @default(autoincrement())
+  pregunta            Pregunta   @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
   preguntaId          Int
-  usuario             Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario             Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId           Int
   dificultadPercibida Dificultad
-  comentario          String?   // Campo opcional para comentarios adicionales del usuario
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  comentario          String? // Campo opcional para comentarios adicionales del usuario
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 }
-
 
 enum FactorName {
   PREGUNTAS_MALAS_PIVOT
