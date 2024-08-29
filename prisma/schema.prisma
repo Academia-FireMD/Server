@@ -51,6 +51,8 @@ model Test {
   respuestas    Respuesta[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  duration      Int?
+  endsAt        DateTime?
 }
 
 model Pregunta {
@@ -58,7 +60,7 @@ model Pregunta {
   identificador          String                @unique
   relevancia             Comunidad[]
   dificultad             Dificultad
-  tema                   Tema                @relation(fields: [temaId], references: [id])
+  tema                   Tema                  @relation(fields: [temaId], references: [id])
   temaId                 Int
   descripcion            String
   solucion               String
@@ -70,6 +72,7 @@ model Pregunta {
   updatedAt              DateTime              @updatedAt
   Respuesta              Respuesta[]
   Feedback               Feedback[]
+  ReporteFallo           ReporteFallo[]
 }
 
 model Tema {
@@ -103,16 +106,17 @@ model Respuesta {
 }
 
 model Usuario {
-  id          Int        @id @default(autoincrement())
-  email       String     @unique
-  contrasenya String
-  rol         Rol        @default(ALUMNO)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  validated   Boolean    @default(false)
-  tests       Test[]
-  comunidad   Comunidad  @default(VALENCIA)
-  Feedback    Feedback[]
+  id           Int            @id @default(autoincrement())
+  email        String         @unique
+  contrasenya  String
+  rol          Rol            @default(ALUMNO)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  validated    Boolean        @default(false)
+  tests        Test[]
+  comunidad    Comunidad      @default(VALENCIA)
+  Feedback     Feedback[]
+  ReporteFallo ReporteFallo[]
 }
 
 model Feedback {
@@ -125,6 +129,17 @@ model Feedback {
   comentario          String? // Campo opcional para comentarios adicionales del usuario
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
+}
+
+model ReporteFallo {
+  id          Int      @id @default(autoincrement())
+  pregunta    Pregunta @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  preguntaId  Int
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId   Int
+  descripcion String // Detalles del fallo reportado
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
 }
 
 enum FactorName {

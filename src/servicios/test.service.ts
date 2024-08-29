@@ -6,6 +6,7 @@ import {
   Pregunta,
   Respuesta,
   SeguridadAlResponder,
+  Test,
   TestStatus,
 } from '@prisma/client';
 import { NewTestDto } from 'src/dtos/new-test.dto';
@@ -62,14 +63,39 @@ export class TestService {
   ) {}
 
   public async obtainTestStats(userId: number, testId: number) {
-    const foundTest = await this.prisma.test.findMany({
+    const foundTest = await this.prisma.test.findFirst({
       where: {
         id: testId,
         realizadorId: userId,
-        status: 'FINALIZADO',
+      },
+      include: {
+        testPreguntas: {
+          include: {
+            pregunta: true,
+          },
+        },
       },
     });
-    if (!foundTest) throw new BadRequestException('El test no existe!');
+
+    if (this.examenTestHasExpired(foundTest)) {
+      await this.prisma.test.update({
+        where: { id: testId },
+        data: {
+          status: TestStatus.FINALIZADO,
+        },
+      });
+      foundTest.status = TestStatus.FINALIZADO;
+    }
+
+    if (!foundTest) {
+      throw new BadRequestException('El test no existe!');
+    }
+
+    if (foundTest.status != TestStatus.FINALIZADO) {
+      throw new BadRequestException('El test no está terminado todavia!');
+    }
+
+    // Obtener todas las respuestas del test
     const stats = await this.prisma.respuesta.groupBy({
       by: ['seguridad', 'esCorrecta'],
       where: {
@@ -80,18 +106,46 @@ export class TestService {
       },
     });
 
+    // Crear un mapa para la seguridad con las estadísticas de respuestas
     const seguridadMap = {
-      CINCUENTA_POR_CIENTO: { correctas: 0, incorrectas: 0 },
-      SETENTA_Y_CINCO_POR_CIENTO: { correctas: 0, incorrectas: 0 },
-      CIEN_POR_CIENTO: { correctas: 0, incorrectas: 0 },
+      CINCUENTA_POR_CIENTO: { correctas: 0, incorrectas: 0, noRespondidas: 0 },
+      SETENTA_Y_CINCO_POR_CIENTO: {
+        correctas: 0,
+        incorrectas: 0,
+        noRespondidas: 0,
+      },
+      CIEN_POR_CIENTO: { correctas: 0, incorrectas: 0, noRespondidas: 0 },
     };
 
+    // Procesar las estadísticas de las respuestas
     stats.forEach((stat) => {
       const key = stat.seguridad as keyof typeof seguridadMap;
       if (stat.esCorrecta) {
         seguridadMap[key].correctas = stat._count.esCorrecta;
       } else {
         seguridadMap[key].incorrectas = stat._count.esCorrecta;
+      }
+    });
+
+    // Obtener las IDs de las preguntas que tienen respuesta
+    const preguntasConRespuestaIds = await this.prisma.respuesta
+      .findMany({
+        where: {
+          testId: testId,
+        },
+        select: {
+          preguntaId: true,
+        },
+      })
+      .then((respuestas) =>
+        respuestas.map((respuesta) => respuesta.preguntaId),
+      );
+
+    // Contar las preguntas no respondidas y clasificarlas por seguridad
+    foundTest.testPreguntas.forEach((tp) => {
+      if (!preguntasConRespuestaIds.includes(tp.pregunta.id)) {
+        const seguridad = tp.pregunta.seguridad || 'CIEN_POR_CIENTO';
+        seguridadMap[seguridad as keyof typeof seguridadMap].noRespondidas++;
       }
     });
 
@@ -138,8 +192,12 @@ export class TestService {
     );
   }
 
+  private examenTestHasExpired(test: Test) {
+    return test.endsAt && new Date() > test.endsAt;
+  }
+
   public async getTestById(testId: number) {
-    const test = await this.prisma.test.findUnique({
+    const test = await this.prisma.test.findFirst({
       where: { id: testId },
       include: {
         respuestas: true,
@@ -165,12 +223,24 @@ export class TestService {
       throw new BadRequestException('Test no encontrado.');
     }
 
+    if (this.examenTestHasExpired(test)) {
+      await this.prisma.test.update({
+        where: { id: testId },
+        data: {
+          status: TestStatus.FINALIZADO,
+        },
+      });
+      test.status = TestStatus.FINALIZADO;
+    }
+
     return {
       id: test.id,
       realizadorId: test.realizadorId,
       status: test.status,
       createdAt: test.createdAt,
       updatedAt: test.updatedAt,
+      duration: test.duration,
+      endsAt: test.endsAt,
       respuestasCount: test.respuestas.length,
       preguntas: test.testPreguntas.map((tp) => tp.pregunta),
     };
@@ -205,17 +275,58 @@ export class TestService {
       },
     });
 
-    return tests.map((test) => ({
-      ...test,
-      respuestasCount: test.respuestas.length,
-      testPreguntasCount: test.testPreguntas.length,
-    }));
+    const updatedTests = await Promise.all(
+      tests.map(async (test) => {
+        if (this.examenTestHasExpired(test)) {
+          await this.prisma.test.update({
+            where: { id: test.id },
+            data: {
+              status: TestStatus.FINALIZADO,
+            },
+          });
+          return { ...test, status: TestStatus.FINALIZADO };
+        }
+        return test;
+      }),
+    );
+
+    return updatedTests
+      .filter((test) => test.status != 'FINALIZADO')
+      .map((test) => ({
+        ...test,
+        respuestasCount: test.respuestas.length,
+        testPreguntasCount: test.testPreguntas.length,
+      }));
   }
 
   public async registrarRespuesta(
     dto: RegistrarRespuestaDto,
     usuarioId: number,
   ) {
+    const test = await this.prisma.test.findUnique({
+      where: { id: dto.testId },
+    });
+
+    if (this.examenTestHasExpired(test)) {
+      await this.prisma.test.update({
+        where: { id: dto.testId },
+        data: {
+          status: 'FINALIZADO',
+        },
+      });
+      throw new BadRequestException('El tiempo del examen ha expirado.');
+    }
+    if (test.status == 'CREADO') {
+      await this.prisma.test.update({
+        where: {
+          id: dto.testId,
+        },
+        data: {
+          status: 'EMPEZADO',
+        },
+      });
+    }
+
     const pregunta = await this.prisma.pregunta.findUnique({
       where: { id: dto.preguntaId },
     });
@@ -269,23 +380,6 @@ export class TestService {
           },
           preguntaId: dto.preguntaId,
           esCorrecta: false,
-        },
-      });
-    }
-
-    const foundCreatedTest = await this.prisma.test.findFirst({
-      where: {
-        id: dto.testId,
-        status: 'CREADO',
-      },
-    });
-    if (!!foundCreatedTest) {
-      await this.prisma.test.update({
-        where: {
-          id: dto.testId,
-        },
-        data: {
-          status: 'EMPEZADO',
         },
       });
     }
@@ -388,7 +482,7 @@ export class TestService {
       // Obtener preguntas disponibles según los filtros normales
       preguntasDisponibles = await this.prisma.pregunta.findMany({
         where: {
-          // TODO tema: { in: dto.temas },
+          temaId: { in: dto.temas },
           relevancia: {
             has: userComunidad,
           },
@@ -414,6 +508,10 @@ export class TestService {
       data: {
         realizadorId: userId,
         status: TestStatus.CREADO,
+        duration: dto.duracion,
+        endsAt: dto.duracion
+          ? new Date(Date.now() + dto.duracion * 60000)
+          : null,
       },
     });
 

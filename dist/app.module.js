@@ -11,11 +11,13 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
 const passport_1 = require("@nestjs/passport");
+const schedule_1 = require("@nestjs/schedule");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const auth_controller_1 = require("./controladores/auth.controller");
 const factor_controller_1 = require("./controladores/factor.controller");
 const preguntas_controller_1 = require("./controladores/preguntas.controller");
+const reporte_fallos_controller_1 = require("./controladores/reporte-fallos.controller");
 const test_controller_1 = require("./controladores/test.controller");
 const user_controller_1 = require("./controladores/user.controller");
 const jwt_strategy_1 = require("./jwt/jwt.strategy");
@@ -24,6 +26,8 @@ const factor_service_1 = require("./servicios/factor.service");
 const feedback_service_1 = require("./servicios/feedback.service");
 const preguntas_service_1 = require("./servicios/preguntas.service");
 const prisma_service_1 = require("./servicios/prisma.service");
+const reporte_fallo_service_1 = require("./servicios/reporte-fallo.service");
+const test_cron_service_1 = require("./servicios/test.cron.service");
 const test_service_1 = require("./servicios/test.service");
 const user_service_1 = require("./servicios/user.service");
 let AppModule = class AppModule {
@@ -33,6 +37,7 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             passport_1.PassportModule,
+            schedule_1.ScheduleModule.forRoot(),
             jwt_1.JwtModule.register({
                 secret: process.env.JWT_SECRET,
                 signOptions: { expiresIn: '60m' },
@@ -45,6 +50,7 @@ exports.AppModule = AppModule = __decorate([
             preguntas_controller_1.PreguntasController,
             factor_controller_1.FactorController,
             test_controller_1.TestController,
+            reporte_fallos_controller_1.ReporteFalloController,
         ],
         providers: [
             config_1.ConfigService,
@@ -57,7 +63,9 @@ exports.AppModule = AppModule = __decorate([
             test_service_1.TestService,
             factor_service_1.FactorService,
             test_service_1.RespuestaPaginatedService,
-            feedback_service_1.FeedbackService
+            feedback_service_1.FeedbackService,
+            test_cron_service_1.TestExpirationService,
+            reporte_fallo_service_1.ReporteFalloService,
         ],
     })
 ], AppModule);

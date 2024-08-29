@@ -3,7 +3,9 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
-  IsNumber
+  IsNumber,
+  IsOptional,
+  Min,
 } from 'class-validator';
 
 export class NewTestDto {
@@ -23,4 +25,9 @@ export class NewTestDto {
   @IsArray({ message: 'Temas debe ser un array de números' })
   @IsNumber({}, { each: true, message: 'Cada tema debe ser un número' })
   temas: number[];
+
+  @IsOptional()
+  @IsNumber({}, { message: 'La duración debe ser un número' })
+  @Min(1, { message: 'La duración debe ser al menos 1 minuto' })
+  duracion?: number; // Duración en minutos (opcional)
 }

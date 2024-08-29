@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Comunidad, Dificultad, Pregunta } from '@prisma/client';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
@@ -151,7 +151,9 @@ export class PreguntasService extends PaginatedService<Pregunta> {
           dificultadEnum = Dificultad.DIFICIL;
           break;
         default:
-          throw new Error(`Dificultad desconocida: ${entry['Dificultad']}`);
+          throw new BadRequestException(
+            `Dificultad desconocida: ${entry['Dificultad']}`,
+          );
       }
 
       const relevanciaArray: Comunidad[] = [
