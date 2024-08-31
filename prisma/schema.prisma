@@ -81,6 +81,7 @@ model Tema {
   descripcion String?
   categoria   String?
   preguntas   Pregunta[] // Relación con Pregunta
+  createdAt              DateTime              @default(now())
 }
 
 model TestPregunta {

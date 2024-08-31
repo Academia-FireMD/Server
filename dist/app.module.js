@@ -18,6 +18,7 @@ const auth_controller_1 = require("./controladores/auth.controller");
 const factor_controller_1 = require("./controladores/factor.controller");
 const preguntas_controller_1 = require("./controladores/preguntas.controller");
 const reporte_fallos_controller_1 = require("./controladores/reporte-fallos.controller");
+const tema_controller_1 = require("./controladores/tema.controller");
 const test_controller_1 = require("./controladores/test.controller");
 const user_controller_1 = require("./controladores/user.controller");
 const jwt_strategy_1 = require("./jwt/jwt.strategy");
@@ -27,6 +28,7 @@ const feedback_service_1 = require("./servicios/feedback.service");
 const preguntas_service_1 = require("./servicios/preguntas.service");
 const prisma_service_1 = require("./servicios/prisma.service");
 const reporte_fallo_service_1 = require("./servicios/reporte-fallo.service");
+const tema_service_1 = require("./servicios/tema.service");
 const test_cron_service_1 = require("./servicios/test.cron.service");
 const test_service_1 = require("./servicios/test.service");
 const user_service_1 = require("./servicios/user.service");
@@ -51,6 +53,7 @@ exports.AppModule = AppModule = __decorate([
             factor_controller_1.FactorController,
             test_controller_1.TestController,
             reporte_fallos_controller_1.ReporteFalloController,
+            tema_controller_1.TemaController,
         ],
         providers: [
             config_1.ConfigService,
@@ -66,6 +69,7 @@ exports.AppModule = AppModule = __decorate([
             feedback_service_1.FeedbackService,
             test_cron_service_1.TestExpirationService,
             reporte_fallo_service_1.ReporteFalloService,
+            tema_service_1.TemaService,
         ],
     })
 ], AppModule);

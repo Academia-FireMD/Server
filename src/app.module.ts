@@ -9,6 +9,7 @@ import { AuthController } from './controladores/auth.controller';
 import { FactorController } from './controladores/factor.controller';
 import { PreguntasController } from './controladores/preguntas.controller';
 import { ReporteFalloController } from './controladores/reporte-fallos.controller';
+import { TemaController } from './controladores/tema.controller';
 import { TestController } from './controladores/test.controller';
 import { UserController } from './controladores/user.controller';
 import { JwtStrategy } from './jwt/jwt.strategy';
@@ -18,6 +19,7 @@ import { FeedbackService } from './servicios/feedback.service';
 import { PreguntasService } from './servicios/preguntas.service';
 import { PrismaService } from './servicios/prisma.service';
 import { ReporteFalloService } from './servicios/reporte-fallo.service';
+import { TemaService } from './servicios/tema.service';
 import { TestExpirationService } from './servicios/test.cron.service';
 import {
   RespuestaPaginatedService,
@@ -42,6 +44,7 @@ import { UsersService } from './servicios/user.service';
     FactorController,
     TestController,
     ReporteFalloController,
+    TemaController,
   ],
   providers: [
     ConfigService,
@@ -57,6 +60,7 @@ import { UsersService } from './servicios/user.service';
     FeedbackService,
     TestExpirationService,
     ReporteFalloService,
+    TemaService,
   ],
 })
 export class AppModule {}

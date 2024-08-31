@@ -40,6 +40,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
       {
         identificador: {
           contains: dto.searchTerm ?? '',
+          mode: 'insensitive',
         },
       },
       { tema: true },
@@ -87,10 +88,6 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         },
       });
     }
-  }
-
-  public getTemas() {
-    return this.prisma.tema.findMany({});
   }
 
   public async importarExcel(file: Express.Multer.File) {

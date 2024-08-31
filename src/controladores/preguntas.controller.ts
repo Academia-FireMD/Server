@@ -41,11 +41,6 @@ export class PreguntasController {
     return this.service.deletePregunta(id);
   }
 
-  @Get('/get-temas')
-  async getTemas() {
-    return this.service.getTemas();
-  }
-
   @Roles(Rol.ADMIN)
   @Get('/:id')
   async getPregunta(@Param('id') id: string) {
