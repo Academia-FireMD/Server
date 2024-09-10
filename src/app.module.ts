@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthController } from './controladores/auth.controller';
 import { FactorController } from './controladores/factor.controller';
+import { FlashcardDataController } from './controladores/flashcards.controller';
 import { PreguntasController } from './controladores/preguntas.controller';
 import { ReporteFalloController } from './controladores/reporte-fallos.controller';
 import { TemaController } from './controladores/tema.controller';
@@ -16,6 +17,7 @@ import { JwtStrategy } from './jwt/jwt.strategy';
 import { AuthService } from './servicios/auth.service';
 import { FactorService } from './servicios/factor.service';
 import { FeedbackService } from './servicios/feedback.service';
+import { FlashcardService } from './servicios/flashcard.service';
 import { PreguntasService } from './servicios/preguntas.service';
 import { PrismaService } from './servicios/prisma.service';
 import { ReporteFalloService } from './servicios/reporte-fallo.service';
@@ -45,6 +47,7 @@ import { UsersService } from './servicios/user.service';
     TestController,
     ReporteFalloController,
     TemaController,
+    FlashcardDataController,
   ],
   providers: [
     ConfigService,
@@ -61,6 +64,7 @@ import { UsersService } from './servicios/user.service';
     TestExpirationService,
     ReporteFalloService,
     TemaService,
+    FlashcardService,
   ],
 })
 export class AppModule {}

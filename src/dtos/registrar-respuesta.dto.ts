@@ -1,5 +1,11 @@
 import { SeguridadAlResponder } from '@prisma/client';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+} from 'class-validator';
 
 export class RegistrarRespuestaDto {
   @IsInt()
@@ -11,9 +17,12 @@ export class RegistrarRespuestaDto {
   preguntaId: number;
 
   @IsInt()
-  @Min(0, { message: 'El índice de la respuesta debe ser un número positivo.' })
-  @IsNotEmpty({ message: 'El índice de la respuesta es obligatorio.' })
-  respuestaDada: number;
+  @IsOptional()
+  respuestaDada?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  omitida?: boolean;
 
   @IsEnum(SeguridadAlResponder, {
     message: 'El valor de seguridad debe ser válido.',

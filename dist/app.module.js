@@ -16,6 +16,7 @@ const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const auth_controller_1 = require("./controladores/auth.controller");
 const factor_controller_1 = require("./controladores/factor.controller");
+const flashcards_controller_1 = require("./controladores/flashcards.controller");
 const preguntas_controller_1 = require("./controladores/preguntas.controller");
 const reporte_fallos_controller_1 = require("./controladores/reporte-fallos.controller");
 const tema_controller_1 = require("./controladores/tema.controller");
@@ -25,6 +26,7 @@ const jwt_strategy_1 = require("./jwt/jwt.strategy");
 const auth_service_1 = require("./servicios/auth.service");
 const factor_service_1 = require("./servicios/factor.service");
 const feedback_service_1 = require("./servicios/feedback.service");
+const flashcard_service_1 = require("./servicios/flashcard.service");
 const preguntas_service_1 = require("./servicios/preguntas.service");
 const prisma_service_1 = require("./servicios/prisma.service");
 const reporte_fallo_service_1 = require("./servicios/reporte-fallo.service");
@@ -54,6 +56,7 @@ exports.AppModule = AppModule = __decorate([
             test_controller_1.TestController,
             reporte_fallos_controller_1.ReporteFalloController,
             tema_controller_1.TemaController,
+            flashcards_controller_1.FlashcardDataController,
         ],
         providers: [
             config_1.ConfigService,
@@ -70,6 +73,7 @@ exports.AppModule = AppModule = __decorate([
             test_cron_service_1.TestExpirationService,
             reporte_fallo_service_1.ReporteFalloService,
             tema_service_1.TemaService,
+            flashcard_service_1.FlashcardService,
         ],
     })
 ], AppModule);

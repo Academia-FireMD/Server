@@ -95,11 +95,12 @@ export class TestService {
       throw new BadRequestException('El test no está terminado todavia!');
     }
 
-    // Obtener todas las respuestas del test
+    // Obtener las estadísticas agrupadas por seguridad y esCorrecta (correctas/incorrectas)
     const stats = await this.prisma.respuesta.groupBy({
       by: ['seguridad', 'esCorrecta'],
       where: {
         testId: testId,
+        estado: 'RESPONDIDA', // Filtrar solo respuestas respondidas (correctas e incorrectas)
       },
       _count: {
         esCorrecta: true,
@@ -117,7 +118,7 @@ export class TestService {
       CIEN_POR_CIENTO: { correctas: 0, incorrectas: 0, noRespondidas: 0 },
     };
 
-    // Procesar las estadísticas de las respuestas
+    // Procesar las estadísticas de las respuestas (solo correctas e incorrectas)
     stats.forEach((stat) => {
       const key = stat.seguridad as keyof typeof seguridadMap;
       if (stat.esCorrecta) {
@@ -127,26 +128,28 @@ export class TestService {
       }
     });
 
-    // Obtener las IDs de las preguntas que tienen respuesta
-    const preguntasConRespuestaIds = await this.prisma.respuesta
-      .findMany({
+    // Obtener el conteo de respuestas omitidas o no respondidas por seguridad
+    const respuestasOmitidasONoRespondidas =
+      await this.prisma.respuesta.findMany({
         where: {
           testId: testId,
+          estado: { in: ['OMITIDA', 'NO_RESPONDIDA'] }, // Solo omitidas o no respondidas
         },
         select: {
           preguntaId: true,
+          estado: true,
+          pregunta: {
+            select: {
+              seguridad: true,
+            },
+          },
         },
-      })
-      .then((respuestas) =>
-        respuestas.map((respuesta) => respuesta.preguntaId),
-      );
+      });
 
-    // Contar las preguntas no respondidas y clasificarlas por seguridad
-    foundTest.testPreguntas.forEach((tp) => {
-      if (!preguntasConRespuestaIds.includes(tp.pregunta.id)) {
-        const seguridad = tp.pregunta.seguridad || 'CIEN_POR_CIENTO';
-        seguridadMap[seguridad as keyof typeof seguridadMap].noRespondidas++;
-      }
+    // Actualizar el mapa de seguridad con las respuestas omitidas o no respondidas
+    respuestasOmitidasONoRespondidas.forEach((respuesta) => {
+      const seguridad = respuesta.pregunta.seguridad || 'CIEN_POR_CIENTO';
+      seguridadMap[seguridad as keyof typeof seguridadMap].noRespondidas++;
     });
 
     return {
@@ -200,7 +203,14 @@ export class TestService {
     const test = await this.prisma.test.findFirst({
       where: { id: testId },
       include: {
-        respuestas: true,
+        respuestas: {
+          select: {
+            id: true,
+            respuestaDada: true,
+            esCorrecta: true,
+            estado: true, // Incluir el estado de la respuesta
+          },
+        },
         testPreguntas: {
           include: {
             pregunta: {
@@ -243,6 +253,7 @@ export class TestService {
       endsAt: test.endsAt,
       respuestasCount: test.respuestas.length,
       preguntas: test.testPreguntas.map((tp) => tp.pregunta),
+      respuestas: test.respuestas,
     };
   }
 
@@ -339,6 +350,7 @@ export class TestService {
         preguntaId: dto.preguntaId,
         respuestaDada: dto.respuestaDada,
         esCorrecta: esCorrecta,
+        estado: dto.omitida ? 'OMITIDA' : 'RESPONDIDA', // Estado dependiendo de si se omitió o no
         seguridad: dto.seguridad ?? SeguridadAlResponder.CIEN_POR_CIENTO,
       },
       include: {
@@ -350,6 +362,7 @@ export class TestService {
       },
     });
 
+    // Aplicar lógica del factor
     const factorPivot = await this.prisma.factor.findUnique({
       where: { id: FactorName.PREGUNTAS_MALAS_PIVOT },
     });
@@ -397,7 +410,7 @@ export class TestService {
     });
 
     const testCompletado = totalRespuestas === totalPreguntas;
-    if (!!testCompletado) {
+    if (testCompletado) {
       await this.prisma.test.update({
         where: {
           id: dto.testId,
