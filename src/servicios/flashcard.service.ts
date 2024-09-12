@@ -642,8 +642,8 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       await this.prisma.flashcardData.create({
         data: {
           identificador: identificador.toString(),
-          descripcion: entry['Descripción'],
-          solucion: entry['Solución'] ?? '',
+          descripcion: entry['Descripción'] + '',
+          solucion: entry['Solución'] + '' ?? '',
           temaId: temaExistente.id,
           dificultad: dificultadEnum,
           relevancia: relevanciaArray,
