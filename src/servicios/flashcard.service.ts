@@ -7,7 +7,7 @@ import {
   FlashcardData,
   TestStatus,
 } from '@prisma/client';
-import { NewTestDto } from 'src/dtos/new-test.dto';
+import { NewFlashcardTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { RegistrarRespuestaFlashcardDto } from 'src/dtos/registrar-respuesta.flashcard.dto';
 import {
@@ -299,7 +299,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
 
   public async startTest(
     userId: number,
-    dto: NewTestDto,
+    dto: NewFlashcardTestDto,
     userComunidad: Comunidad,
   ) {
     // Verificar si el usuario tiene tests en progreso o creados
@@ -313,7 +313,9 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
     if (testEnProgreso) {
       throw new BadRequestException('Tienes algún test ya empezado o creado!');
     }
+
     let flashcardsDisponibles: FlashcardData[];
+
     if (dto.generarTestDeRepaso) {
       const fallos = await this.prisma.flashcardRespuesta.findMany({
         where: {
@@ -354,27 +356,30 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         }
       }
     } else {
+      // Obtener las flashcards basadas en los temas y dificultades seleccionadas
       flashcardsDisponibles = await this.prisma.flashcardData.findMany({
         where: {
-          temaId: { in: dto.temas },
+          temaId: { in: dto.temas }, // Selecciona solo los temas seleccionados
+          dificultad: { in: dto.dificultades }, // Selecciona solo las dificultades seleccionadas
           relevancia: {
-            has: userComunidad,
+            has: userComunidad, // Opcional, para la relevancia de comunidad
           },
         },
       });
 
       if (flashcardsDisponibles.length === 0) {
         throw new BadRequestException(
-          'No hay flashcards disponibles para los temas seleccionados.',
+          'No hay flashcards disponibles para los temas y dificultades seleccionados.',
         );
       }
 
-      // Seleccionar preguntas según la dificultad y cantidad solicitada
-      flashcardsDisponibles = this.seleccionarFlashcardsPorDificultad(
-        flashcardsDisponibles,
-        dto.numPreguntas,
-        dto.dificultad,
-      );
+      // Si hay más flashcards de las necesarias, reducir la cantidad
+      if (flashcardsDisponibles.length > dto.numPreguntas) {
+        flashcardsDisponibles = this.seleccionarFlashcardsAleatorias(
+          flashcardsDisponibles,
+          dto.numPreguntas,
+        );
+      }
     }
 
     // Crear el test en la base de datos
@@ -385,90 +390,38 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       },
     });
 
-    const testPreguntasData = flashcardsDisponibles
-      .slice(0, dto.numPreguntas)
-      .map((flashcard) => ({
-        testId: test.id,
-        flashcardId: flashcard.id,
-      }));
+    const testPreguntasData = flashcardsDisponibles.map((flashcard) => ({
+      testId: test.id,
+      flashcardId: flashcard.id,
+    }));
 
     await this.prisma.flashcardTestItem.createMany({
       data: testPreguntasData,
     });
+
     const testConPreguntas = await this.getFlashcard(test.id + '');
 
     return testConPreguntas;
   }
 
-  private seleccionarFlashcardsPorDificultad(
+  private seleccionarFlashcardsAleatorias(
     flashcards: FlashcardData[],
     numFlashcards: number,
-    dificultadSolicitada: Dificultad,
   ): FlashcardData[] {
-    const distribucion =
-      this.obtenerDistribucionDificultadFlashcards(dificultadSolicitada);
-
-    const flashcardsPorDificultad = {
-      TARJETAS: flashcards.filter((f) => f.dificultad === Dificultad.DIFICIL),
-      DATOS: flashcards.filter((f) => f.dificultad === Dificultad.INTERMEDIO),
-      DATOS_BASICOS: flashcards.filter(
-        (f) => f.dificultad === Dificultad.BASICO,
-      ),
-    };
-
     const seleccionadas: FlashcardData[] = [];
-
-    const seleccionarConRepeticion = (
-      listaFlashcards: FlashcardData[],
-      cantidad: number,
-    ): FlashcardData[] => {
-      const resultado: FlashcardData[] = [];
-      for (let i = 0; i < cantidad; i++) {
-        const indice = Math.floor(Math.random() * listaFlashcards.length);
-        resultado.push(listaFlashcards[indice]);
-      }
-      return resultado;
-    };
-
-    seleccionadas.push(
-      ...seleccionarConRepeticion(
-        flashcardsPorDificultad.TARJETAS,
-        Math.round(distribucion.dificil * numFlashcards),
-      ),
-    );
-
-    seleccionadas.push(
-      ...seleccionarConRepeticion(
-        flashcardsPorDificultad.DATOS,
-        Math.round(distribucion.intermedio * numFlashcards),
-      ),
-    );
-
-    seleccionadas.push(
-      ...seleccionarConRepeticion(
-        flashcardsPorDificultad.DATOS_BASICOS,
-        Math.round(distribucion.facil * numFlashcards),
-      ),
-    );
+    const seleccionadasSet = new Set<number>();
 
     while (seleccionadas.length < numFlashcards) {
-      const indice = Math.floor(Math.random() * flashcards.length);
-      seleccionadas.push(flashcards[indice]);
+      const randomIndex = Math.floor(Math.random() * flashcards.length);
+      const flashcard = flashcards[randomIndex];
+
+      if (!seleccionadasSet.has(flashcard.id)) {
+        seleccionadas.push(flashcard);
+        seleccionadasSet.add(flashcard.id);
+      }
     }
 
-    return seleccionadas.slice(0, numFlashcards);
-  }
-
-  private obtenerDistribucionDificultadFlashcards(dificultad: Dificultad) {
-    switch (dificultad) {
-      case Dificultad.DIFICIL:
-        return { dificil: 0.6, intermedio: 0.3, facil: 0.1 };
-      case Dificultad.INTERMEDIO:
-        return { dificil: 0.3, intermedio: 0.5, facil: 0.2 };
-      case Dificultad.BASICO:
-      default:
-        return { dificil: 0.1, intermedio: 0.3, facil: 0.6 };
-    }
+    return seleccionadas;
   }
 
   public async deleteTest(userId: number, testId: number) {
@@ -584,7 +537,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
     const sheet = workbook.Sheets[sheetName];
 
     const jsonData = XLSX.utils.sheet_to_json(sheet);
-
+    let insertados = 0;
     for (const entry of jsonData) {
       const identificador = entry['identificador'] || entry['Identificador'];
       const relevancia = entry['relevancia'] || entry['Relevancia'];
@@ -649,8 +602,13 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
           relevancia: relevanciaArray,
         },
       });
+      insertados++;
     }
 
-    return { message: 'Archivo procesado exitosamente' };
+    return {
+      message: 'Archivo procesado exitosamente',
+      count: insertados,
+      ignoradas: jsonData.length - insertados,
+    };
   }
 }

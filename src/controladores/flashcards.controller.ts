@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Rol } from '@prisma/client';
-import { NewTestDto } from 'src/dtos/new-test.dto';
+import { NewFlashcardTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { RegistrarRespuestaFlashcardDto } from 'src/dtos/registrar-respuesta.flashcard.dto';
 import {
@@ -71,7 +71,7 @@ export class FlashcardDataController {
 
   @Roles(Rol.ALUMNO)
   @Post('start-test')
-  async startTest(@Body() dto: NewTestDto, @Request() req) {
+  async startTest(@Body() dto: NewFlashcardTestDto, @Request() req) {
     const { id, comunidad } = req.user;
     return this.service.startTest(Number(id), dto, comunidad);
   }

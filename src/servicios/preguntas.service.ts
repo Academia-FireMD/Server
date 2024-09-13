@@ -96,7 +96,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
     const sheet = workbook.Sheets[sheetName];
 
     const jsonData = XLSX.utils.sheet_to_json(sheet);
-
+    let insertados = 0;
     for (const entry of jsonData) {
       if (!entry['identificador']) {
         console.log('No hay identificador, ignorando');
@@ -169,8 +169,13 @@ export class PreguntasService extends PaginatedService<Pregunta> {
           relevancia: relevanciaArray,
         },
       });
+      insertados++;
     }
 
-    return { message: 'Archivo procesado exitosamente' };
+    return {
+      message: 'Archivo procesado exitosamente',
+      count: insertados,
+      ignoradas: jsonData.length - insertados,
+    };
   }
 }
