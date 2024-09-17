@@ -571,21 +571,23 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         });
       }
 
-      let dificultadEnum: Dificultad;
-      switch (entry['Dificultad'].toLowerCase()) {
-        case 'datos basicos':
-          dificultadEnum = Dificultad.BASICO;
-          break;
-        case 'datos':
-          dificultadEnum = Dificultad.INTERMEDIO;
-          break;
-        case 'tarjetas':
-          dificultadEnum = Dificultad.DIFICIL;
-          break;
-        default:
-          throw new BadRequestException(
-            `Dificultad desconocida: ${entry['Dificultad']}`,
-          );
+      let dificultadEnum: Dificultad = Dificultad.BASICO;
+      if (entry['Dificultad']) {
+        switch (entry['Dificultad'].toLowerCase()) {
+          case 'datos basicos':
+            dificultadEnum = Dificultad.BASICO;
+            break;
+          case 'datos':
+            dificultadEnum = Dificultad.INTERMEDIO;
+            break;
+          case 'tarjetas':
+            dificultadEnum = Dificultad.DIFICIL;
+            break;
+          default:
+            throw new BadRequestException(
+              `Dificultad desconocida: ${entry['Dificultad']}`,
+            );
+        }
       }
 
       const relevanciaArray: Comunidad[] = [
