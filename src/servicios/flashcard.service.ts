@@ -169,7 +169,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       await this.prisma.flashcardRespuesta.findMany({
         where: {
           testItem: {
-            test: { realizadorId: usuarioId },
+            test: { realizadorId: usuarioId, status: TestStatus.FINALIZADO },
           },
           flashcardId: dto.flashcardId,
           estado: EstadoFlashcard.BIEN,
@@ -302,6 +302,8 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
     dto: NewFlashcardTestDto,
     userComunidad: Comunidad,
   ) {
+    const numPreguntas = dto.numPreguntas;
+
     // Verificar si el usuario tiene tests en progreso o creados
     const testEnProgreso = await this.prisma.flashcardTest.findFirst({
       where: {
@@ -314,75 +316,157 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       throw new BadRequestException('Tienes algún test ya empezado o creado!');
     }
 
-    let flashcardsDisponibles: FlashcardData[];
+    let flashcardsDisponibles: FlashcardData[] = [];
 
+    // Caso cuando se trata de un test de repaso
     if (dto.generarTestDeRepaso) {
-      const fallos = await this.prisma.flashcardRespuesta.findMany({
+      const flashcardsMalYRevisar = await this.prisma.flashcardData.findMany({
         where: {
-          testItem: {
-            test: {
-              realizadorId: userId,
-              status: TestStatus.FINALIZADO,
+          temaId: { in: dto.temas },
+          dificultad: { in: dto.dificultades },
+          relevancia: {
+            has: userComunidad,
+          },
+          FlashcardRespuesta: {
+            some: {
+              testItem: {
+                test: {
+                  realizadorId: userId,
+                  status: TestStatus.FINALIZADO,
+                },
+              },
+              OR: [
+                { estado: EstadoFlashcard.MAL },
+                { estado: EstadoFlashcard.REVISAR },
+              ],
             },
           },
-          OR: [
-            {
-              estado: EstadoFlashcard.MAL,
-            },
-            {
-              estado: EstadoFlashcard.REVISAR,
-            },
-          ],
         },
         include: {
-          flashcard: true,
+          FlashcardRespuesta: true,
         },
       });
 
-      if (fallos.length === 0) {
+      if (flashcardsMalYRevisar.length === 0) {
         throw new BadRequestException(
-          'No tienes flashcards falladas para generar un test de repaso.',
+          'No tienes flashcards falladas o marcadas como revisar para generar un test de repaso.',
         );
       }
 
-      flashcardsDisponibles = fallos.map((fallo) => fallo.flashcard);
+      flashcardsDisponibles = flashcardsMalYRevisar;
 
-      if (flashcardsDisponibles.length < dto.numPreguntas) {
-        const faltantes = dto.numPreguntas - flashcardsDisponibles.length;
+      // Si hay menos flashcards que las solicitadas, repetir las que fueron MAL o REVISAR
+      if (flashcardsDisponibles.length < numPreguntas) {
+        const faltantes = numPreguntas - flashcardsDisponibles.length;
         for (let i = 0; i < faltantes; i++) {
           const flashcardRepetida =
-            flashcardsDisponibles[i % flashcardsDisponibles.length];
+            flashcardsDisponibles[i % flashcardsDisponibles.length]; // Repetir cíclicamente
           flashcardsDisponibles.push(flashcardRepetida);
         }
       }
     } else {
-      // Obtener las flashcards basadas en los temas y dificultades seleccionadas
-      flashcardsDisponibles = await this.prisma.flashcardData.findMany({
+      // Para un test normal (no de repaso), selecciona las flashcards basadas en temas y dificultades
+      const todasLasFlashcards = await this.prisma.flashcardData.findMany({
         where: {
-          temaId: { in: dto.temas }, // Selecciona solo los temas seleccionados
-          dificultad: { in: dto.dificultades }, // Selecciona solo las dificultades seleccionadas
+          temaId: { in: dto.temas },
+          dificultad: { in: dto.dificultades },
           relevancia: {
-            has: userComunidad, // Opcional, para la relevancia de comunidad
+            has: userComunidad,
+          },
+        },
+        include: {
+          FlashcardRespuesta: {
+            where: {
+              testItem: {
+                test: {
+                  realizadorId: userId,
+                  status: TestStatus.FINALIZADO,
+                },
+              },
+            },
           },
         },
       });
 
-      if (flashcardsDisponibles.length === 0) {
+      if (todasLasFlashcards.length === 0) {
         throw new BadRequestException(
           'No hay flashcards disponibles para los temas y dificultades seleccionados.',
         );
       }
 
-      // Si hay más flashcards de las necesarias, reducir la cantidad
-      if (flashcardsDisponibles.length > dto.numPreguntas) {
-        flashcardsDisponibles = this.seleccionarFlashcardsAleatorias(
-          flashcardsDisponibles,
-          dto.numPreguntas,
+      const noRespondidas = todasLasFlashcards.filter(
+        (fc) => fc.FlashcardRespuesta.length === 0,
+      );
+      const malRespondidas = todasLasFlashcards.filter((fc) =>
+        fc.FlashcardRespuesta.some((r) => r.estado === EstadoFlashcard.MAL),
+      );
+      const revisarRespondidas = todasLasFlashcards.filter((fc) =>
+        fc.FlashcardRespuesta.some((r) => r.estado === EstadoFlashcard.REVISAR),
+      );
+      const bienRespondidas = todasLasFlashcards.filter((fc) =>
+        fc.FlashcardRespuesta.every((r) => r.estado === EstadoFlashcard.BIEN),
+      );
+
+      // Definir las cantidades para cada categoría
+      const factorNoRespondidas = await this.prisma.factor.findUnique({
+        where: { id: FactorName.FLASHCARDS_BALANCE_NO_RESPONDIDAS },
+      });
+
+      const factorMalRespondidas = await this.prisma.factor.findUnique({
+        where: { id: FactorName.FLASHCARDS_BALANCE_MAL },
+      });
+
+      const factorRevisarRespondidas = await this.prisma.factor.findUnique({
+        where: { id: FactorName.FLASHCARDS_BALANCE_REVISAR },
+      });
+
+      const factorBienRespondidas = await this.prisma.factor.findUnique({
+        where: { id: FactorName.FLASHCARDS_BALANCE_BIEN },
+      });
+
+      const numNoRespondidas = Math.floor(
+        numPreguntas * (factorNoRespondidas.value / 100),
+      );
+      const numMalRespondidas = Math.floor(
+        numPreguntas * (factorMalRespondidas.value / 100),
+      );
+      const numRevisarRespondidas = Math.floor(
+        numPreguntas * (factorRevisarRespondidas.value / 100),
+      );
+      const numBienRespondidas = Math.floor(
+        numPreguntas * (factorBienRespondidas.value / 100),
+      );
+
+      // Seleccionar flashcards para cada categoría
+      let seleccionadas: FlashcardData[] = [];
+      seleccionadas = seleccionadas.concat(
+        this.seleccionarFlashcardsAleatorias(noRespondidas, numNoRespondidas),
+        this.seleccionarFlashcardsAleatorias(malRespondidas, numMalRespondidas),
+        this.seleccionarFlashcardsAleatorias(
+          revisarRespondidas,
+          numRevisarRespondidas,
+        ),
+        this.seleccionarFlashcardsAleatorias(
+          bienRespondidas,
+          numBienRespondidas,
+        ),
+      );
+
+      // Si no se llega al número de preguntas solicitado, rellenar con flashcards aleatorias o bien respondidas
+      if (seleccionadas.length < numPreguntas) {
+        const faltantes = numPreguntas - seleccionadas.length;
+        const rellenar =
+          bienRespondidas.length > 0 ? bienRespondidas : todasLasFlashcards; // Rellenar con flashcards bien respondidas o aleatorias
+
+        seleccionadas = seleccionadas.concat(
+          this.seleccionarFlashcardsAleatorias(rellenar, faltantes),
         );
       }
+
+      flashcardsDisponibles = seleccionadas;
     }
 
-    // Crear el test en la base de datos
+    // Crear el test con las flashcards seleccionadas
     const test = await this.prisma.flashcardTest.create({
       data: {
         realizadorId: userId,
@@ -408,20 +492,22 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
     flashcards: FlashcardData[],
     numFlashcards: number,
   ): FlashcardData[] {
-    const seleccionadas: FlashcardData[] = [];
-    const seleccionadasSet = new Set<number>();
-
-    while (seleccionadas.length < numFlashcards) {
-      const randomIndex = Math.floor(Math.random() * flashcards.length);
-      const flashcard = flashcards[randomIndex];
-
-      if (!seleccionadasSet.has(flashcard.id)) {
-        seleccionadas.push(flashcard);
-        seleccionadasSet.add(flashcard.id);
-      }
+    // Si hay menos flashcards disponibles que el número solicitado, devolver todas las disponibles.
+    if (flashcards.length <= numFlashcards) {
+      return flashcards;
     }
 
-    return seleccionadas;
+    // Algoritmo Fisher-Yates Shuffle para mezclar el array
+    for (let i = flashcards.length - 1; i > 0; i--) {
+      const randomIndex = Math.floor(Math.random() * (i + 1));
+      [flashcards[i], flashcards[randomIndex]] = [
+        flashcards[randomIndex],
+        flashcards[i],
+      ];
+    }
+
+    // Devolver las primeras 'numFlashcards' flashcards
+    return flashcards.slice(0, numFlashcards);
   }
 
   public async deleteTest(userId: number, testId: number) {
