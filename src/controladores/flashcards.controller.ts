@@ -14,18 +14,25 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Rol } from '@prisma/client';
 import { NewFlashcardTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
+import { DateRangeDto } from 'src/dtos/range.dto';
 import { RegistrarRespuestaFlashcardDto } from 'src/dtos/registrar-respuesta.flashcard.dto';
 import {
   CreateFlashcardDataDto,
   UpdateFlashcardDataDto,
 } from 'src/dtos/update-flashcard.dto';
 import { Roles, RolesGuard } from 'src/guards/roles.guard';
-import { FlashcardService } from 'src/servicios/flashcard.service';
+import {
+  FlashcardService,
+  FlashcardTestService,
+} from 'src/servicios/flashcard.service';
 
 @UseGuards(RolesGuard)
 @Controller('flashcards')
 export class FlashcardDataController {
-  constructor(private readonly service: FlashcardService) {}
+  constructor(
+    private readonly service: FlashcardService,
+    private readonly serviceTest: FlashcardTestService,
+  ) {}
 
   @Roles(Rol.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
@@ -49,11 +56,15 @@ export class FlashcardDataController {
     return this.service.obtenerFallosCount(Number(id));
   }
 
-  @Roles(Rol.ALUMNO)
+  @Roles(Rol.ALUMNO, Rol.ADMIN)
   @Get('/test-stats/:id')
   async getTestStats(@Param('id') idTest: string, @Request() req) {
-    const { id } = req.user;
-    return this.service.obtainFlashcardTestStats(id, Number(idTest));
+    const { id, role } = req.user;
+    return this.service.obtainFlashcardTestStats(
+      id,
+      Number(idTest),
+      role == Rol.ADMIN,
+    );
   }
 
   @Roles(Rol.ALUMNO)
@@ -93,7 +104,7 @@ export class FlashcardDataController {
     return this.service.getFinishedTestsByUserId(Number(id));
   }
 
-  @Roles(Rol.ALUMNO)
+  @Roles(Rol.ALUMNO, Rol.ADMIN)
   @Get('/por-id/:id')
   async getTestById(@Param('id') id: string) {
     return this.service.getTestById(Number(id));
@@ -111,9 +122,35 @@ export class FlashcardDataController {
     return this.service.getAllFlashcards(body);
   }
 
+  @Roles(Rol.ALUMNO)
+  @Post('/tests-alumno')
+  async getAllPreguntasAlumno(@Body() body: PaginationDto, @Request() req) {
+    const { id } = req.user;
+    return this.serviceTest.getAllFlashcardsTestsAlumno(body, id);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Post('/tests-admin')
+  async getAllPreguntasAdmin(@Body() body: PaginationDto) {
+    return this.serviceTest.getAllFlashcardsTestsAdmin(body);
+  }
+
   @Roles(Rol.ADMIN)
   @Get('/:id')
   async getFlashcard(@Param('id') id: string) {
     return this.service.getFlashcard(id);
+  }
+
+  @Roles(Rol.ALUMNO)
+  @Post('/test-stats-by-category/')
+  async getTestStatsByCategory(@Body() body: DateRangeDto, @Request() req) {
+    const { id } = req.user;
+    return this.service.getFlashcardTestsWithCategories(body, id);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Post('/test-stats-by-category-admin/')
+  async getTestStatsByCategoryAdmin(@Body() body: DateRangeDto) {
+    return this.service.getFlashcardTestsWithCategories(body);
   }
 }

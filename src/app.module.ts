@@ -17,7 +17,10 @@ import { JwtStrategy } from './jwt/jwt.strategy';
 import { AuthService } from './servicios/auth.service';
 import { FactorService } from './servicios/factor.service';
 import { FeedbackService } from './servicios/feedback.service';
-import { FlashcardService } from './servicios/flashcard.service';
+import {
+  FlashcardService,
+  FlashcardTestService,
+} from './servicios/flashcard.service';
 import { PreguntasService } from './servicios/preguntas.service';
 import { PrismaService } from './servicios/prisma.service';
 import { ReporteFalloService } from './servicios/reporte-fallo.service';
@@ -65,6 +68,7 @@ import { UsersService } from './servicios/user.service';
     ReporteFalloService,
     TemaService,
     FlashcardService,
+    FlashcardTestService,
   ],
 })
 export class AppModule {}

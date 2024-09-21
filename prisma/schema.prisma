@@ -50,6 +50,7 @@ model Test {
   updatedAt     DateTime       @updatedAt
   duration      Int?
   endsAt        DateTime?
+  esDeRepaso Boolean         @default(false)
 }
 
 model Pregunta {
@@ -57,7 +58,7 @@ model Pregunta {
   identificador          String                @unique
   relevancia             Comunidad[]
   dificultad             Dificultad
-  tema                   Tema                  @relation(fields: [temaId], references: [id])
+  tema                   Tema                  @relation(fields: [temaId], references: [id], onDelete: Cascade)
   temaId                 Int
   descripcion            String
   solucion               String
@@ -80,6 +81,7 @@ model FlashcardTest {
   status     TestStatus          @default(CREADO)
   createdAt  DateTime            @default(now())
   updatedAt  DateTime            @updatedAt
+  esDeRepaso Boolean         @default(false)
 }
 
 model FlashcardTestItem {
@@ -107,7 +109,7 @@ model FlashcardData {
   identificador      String               @unique
   relevancia         Comunidad[]
   dificultad         Dificultad
-  tema               Tema                 @relation(fields: [temaId], references: [id])
+  tema               Tema                 @relation(fields: [temaId], references: [id], onDelete: Cascade)
   temaId             Int
   descripcion        String
   solucion           String
@@ -127,7 +129,7 @@ enum EstadoFlashcard {
 
 model Tema {
   id            Int             @id @default(autoincrement())
-  numero        Int
+  numero        String
   descripcion   String?
   categoria     String?
   preguntas     Pregunta[] // Relación con Pregunta

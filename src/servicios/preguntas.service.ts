@@ -81,9 +81,9 @@ export class PreguntasService extends PaginatedService<Pregunta> {
             },
           },
           descripcion: dto.descripcion,
-          solucion: dto.solucion,
+          solucion: dto.solucion ?? '',
           respuestas: dto.respuestas,
-          respuestaCorrectaIndex: dto.respuestaCorrectaIndex,
+          respuestaCorrectaIndex: dto.respuestaCorrectaIndex ?? 0,
           seguridad: dto.seguridad,
         },
       });
@@ -115,14 +115,14 @@ export class PreguntasService extends PaginatedService<Pregunta> {
 
       let temaExistente = await this.prisma.tema.findFirst({
         where: {
-          numero: parseInt(entry['Tema'], 10),
+          numero: entry['Tema'] + '',
         },
       });
 
       if (!temaExistente) {
         temaExistente = await this.prisma.tema.create({
           data: {
-            numero: parseInt(entry['Tema'], 10),
+            numero: entry['Tema'] + '',
             descripcion: entry['Descripción Tema'],
             categoria: entry['Categoría'],
           },

@@ -17,4 +17,7 @@ export class PaginationDto {
     { message: 'Debes pasar un numero valido a la propiedad totalRegisters' },
   )
   totalRegisters: number;
+
+  @IsOptional()
+  where?: any;
 }

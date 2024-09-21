@@ -5,10 +5,15 @@ import {
   EstadoFlashcard,
   FactorName,
   FlashcardData,
+  FlashcardTest,
+  FlashcardTestItem,
+  Tema,
   TestStatus,
 } from '@prisma/client';
+import { firstValueFrom, forkJoin, from, map, mergeMap, of } from 'rxjs';
 import { NewFlashcardTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
+import { DateRangeDto } from 'src/dtos/range.dto';
 import { RegistrarRespuestaFlashcardDto } from 'src/dtos/registrar-respuesta.flashcard.dto';
 import {
   CreateFlashcardDataDto,
@@ -17,6 +22,7 @@ import {
 import * as XLSX from 'xlsx';
 import { PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
+
 @Injectable()
 export class FlashcardService extends PaginatedService<FlashcardData> {
   constructor(protected prisma: PrismaService) {
@@ -47,13 +53,18 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
     return tests;
   }
 
-  public async obtainFlashcardTestStats(userId: number, testId: number) {
+  public async obtainFlashcardTestStats(
+    userId: number,
+    testId: number,
+    isAdmin = false,
+  ) {
+    const where = {
+      id: testId,
+    };
+    if (!isAdmin) where['realizadorId'] = userId;
     // Encontrar el test de flashcards para el usuario
     const foundTest = await this.prisma.flashcardTest.findFirst({
-      where: {
-        id: testId,
-        realizadorId: userId,
-      },
+      where,
       include: {
         flashcards: {
           include: {
@@ -471,6 +482,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       data: {
         realizadorId: userId,
         status: TestStatus.CREADO,
+        esDeRepaso: dto.generarTestDeRepaso,
       },
     });
 
@@ -564,6 +576,90 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
     );
   }
 
+  async getFlashcardTestsWithCategories(
+    dto: DateRangeDto,
+    realizadorId?: number,
+  ) {
+    const where = {
+      createdAt: {
+        gte: dto.from,
+        lte: dto.to,
+      },
+      status: 'FINALIZADO',
+    } as any;
+    if (realizadorId) where['realizadorId'] = realizadorId;
+    const flashcardTests = await this.prisma.flashcardTest.findMany({
+      where,
+      include: {
+        flashcards: {
+          include: {
+            flashcard: {
+              include: {
+                tema: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const testWithStats = await firstValueFrom(
+      this.addStatsToTest(flashcardTests),
+    );
+
+    return this.groupFlashcardsByCategory(testWithStats as any);
+  }
+  addStatsToTest(tests: Array<FlashcardTest>) {
+    return forkJoin(
+      tests.map((entry) =>
+        from(this.obtainFlashcardTestStats(entry.realizadorId, entry.id)).pipe(
+          map((stats) => ({
+            ...entry,
+            stats,
+          })),
+        ),
+      ),
+    );
+  }
+
+  groupFlashcardsByCategory(
+    flashcardTests: (FlashcardTest & {
+      flashcards: (FlashcardTestItem & {
+        flashcard: FlashcardData & { tema: Tema };
+      })[];
+    })[],
+  ) {
+    const groupedFlashcards = {
+      mixto: [] as FlashcardTest[], // Inicializamos la categoría 'mixto' como un array vacío
+    };
+
+    for (const flashcardTest of flashcardTests) {
+      // Creamos un Set para almacenar todas las categorías de un flashcardTest
+      const categorias = new Set<string>();
+
+      for (const flashcardTestItem of flashcardTest.flashcards) {
+        const categoria = flashcardTestItem.flashcard.tema.categoria;
+        categorias.add(categoria); // Añadimos la categoría al Set
+      }
+
+      // Verificamos si el flashcardTest tiene más de una categoría
+      if (categorias.size > 1) {
+        groupedFlashcards.mixto.push(flashcardTest); // Si tiene varias categorías, lo asignamos a 'mixto'
+      } else {
+        // Si solo tiene una categoría, lo agrupamos bajo esa categoría
+        const categoria = Array.from(categorias)[0]; // Obtenemos la única categoría
+
+        if (!groupedFlashcards[categoria]) {
+          groupedFlashcards[categoria] = [];
+        }
+
+        groupedFlashcards[categoria].push(flashcardTest); // Agrupamos el flashcardTest en su categoría
+      }
+    }
+
+    return groupedFlashcards;
+  }
+
   public getFlashcard(flashcardDataId: string) {
     return this.prisma.flashcardData.findFirst({
       where: {
@@ -643,14 +739,14 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
 
       let temaExistente = await this.prisma.tema.findFirst({
         where: {
-          numero: parseInt(entry['Tema'], 10),
+          numero: entry['Tema'] + '',
         },
       });
 
       if (!temaExistente) {
         temaExistente = await this.prisma.tema.create({
           data: {
-            numero: parseInt(entry['Tema'], 10),
+            numero: entry['Tema'] + '',
             descripcion: entry['Descripción Tema'],
             categoria: entry['Categoría'],
           },
@@ -698,5 +794,109 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       count: insertados,
       ignoradas: jsonData.length - insertados,
     };
+  }
+}
+
+@Injectable()
+export class FlashcardTestService extends PaginatedService<FlashcardTest> {
+  private includeConfig = {
+    realizador: true,
+    flashcards: {
+      include: {
+        flashcard: {
+          include: {
+            tema: true,
+          },
+        },
+      },
+    },
+  };
+
+  constructor(
+    protected prisma: PrismaService,
+    private flashcardService: FlashcardService,
+  ) {
+    super(prisma);
+  }
+
+  protected getModelName(): string {
+    return 'flashcardTest';
+  }
+
+  public getAllFlashcardsTestsAdmin(dto: PaginationDto) {
+    return from(
+      this.getPaginatedData(
+        dto,
+        {
+          ...dto.where,
+          status: TestStatus.FINALIZADO,
+          realizador: {
+            email: {
+              contains: dto.searchTerm ?? '',
+              mode: 'insensitive',
+            },
+          },
+        },
+        this.includeConfig,
+      ),
+    ).pipe(
+      mergeMap((res) => {
+        if (res.data.length == 0) return of(res);
+        return this.addStatsToTest(res.data).pipe(
+          map((dataWithStats) => ({
+            data: dataWithStats,
+            pagination: res.pagination,
+          })),
+        );
+      }),
+    );
+  }
+
+  public addStatsToTest(tests: Array<FlashcardTest>) {
+    return forkJoin(
+      tests.map((entry) =>
+        from(
+          this.flashcardService.obtainFlashcardTestStats(
+            entry.realizadorId,
+            entry.id,
+          ),
+        ).pipe(
+          map((stats) => ({
+            ...entry,
+            stats,
+          })),
+        ),
+      ),
+    );
+  }
+
+  public getAllFlashcardsTestsAlumno(dto: PaginationDto, realizadorId: number) {
+    return from(
+      this.getPaginatedData(
+        dto,
+        {
+          ...dto.where,
+          realizadorId,
+          status: TestStatus.FINALIZADO,
+          realizador: {
+            email: {
+              contains: dto.searchTerm ?? '',
+              mode: 'insensitive',
+            },
+          },
+        },
+        this.includeConfig,
+      ),
+    ).pipe(
+      mergeMap((res) => {
+        if (res.data.length == 0) return of(res);
+        return this.addStatsToTest(res.data).pipe(
+          map((dataWithStats) => ({
+            data: dataWithStats,
+            pagination: res.pagination,
+          })),
+        );
+      }),
+    );
   }
 }

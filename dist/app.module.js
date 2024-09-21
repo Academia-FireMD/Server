@@ -74,6 +74,7 @@ exports.AppModule = AppModule = __decorate([
             reporte_fallo_service_1.ReporteFalloService,
             tema_service_1.TemaService,
             flashcard_service_1.FlashcardService,
+            flashcard_service_1.FlashcardTestService,
         ],
     })
 ], AppModule);

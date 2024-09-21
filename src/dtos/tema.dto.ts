@@ -1,9 +1,7 @@
-import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateTemaDto {
-  @IsInt({ message: 'El número debe ser un número entero.' })
-  @Min(1, { message: 'El número debe ser al menos 1.' })
-  numero: number;
+  numero: string;
 
   @IsOptional()
   @IsString({ message: 'La descripción debe ser una cadena de texto.' })

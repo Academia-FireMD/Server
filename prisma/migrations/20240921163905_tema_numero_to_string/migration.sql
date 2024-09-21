@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Tema" ALTER COLUMN "numero" SET DATA TYPE TEXT;

@@ -12,6 +12,7 @@ import { Rol } from '@prisma/client';
 import { FeedbackDto } from 'src/dtos/feedback.dto';
 import { NewTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
+import { DateRangeDto } from 'src/dtos/range.dto';
 import { RegistrarRespuestaDto } from 'src/dtos/registrar-respuesta.dto';
 import { Roles, RolesGuard } from 'src/guards/roles.guard';
 import { FeedbackService } from 'src/servicios/feedback.service';
@@ -26,6 +27,19 @@ export class TestController {
   ) {}
 
   @Roles(Rol.ALUMNO)
+  @Post('/tests-alumno')
+  async getAllPreguntas(@Body() body: PaginationDto, @Request() req) {
+    const { id } = req.user;
+    return this.service.getAllTestsAlumno(body, id);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Post('/tests-admin')
+  async getAllPreguntasAdmin(@Body() body: PaginationDto) {
+    return this.service.getAllTestsAdmin(body);
+  }
+
+  @Roles(Rol.ALUMNO, Rol.ADMIN)
   @Get('/por-id/:id')
   async getTestById(@Param('id') id: string) {
     return this.service.getTestById(Number(id));
@@ -87,10 +101,23 @@ export class TestController {
     return this.service.obtenerFallos(Number(id), body);
   }
 
-  @Roles(Rol.ALUMNO)
+  @Roles(Rol.ALUMNO, Rol.ADMIN)
   @Get('/test-stats/:id')
   async getTestStats(@Param('id') idTest: string, @Request() req) {
+    const { id, role } = req.user;
+    return this.service.obtainTestStats(id, Number(idTest), role == Rol.ADMIN);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Post('/test-stats-by-category-admin/')
+  async getTestStatsByCategoryAdmin(@Body() body: DateRangeDto) {
+    return this.service.getTestStatsByCategory(body);
+  }
+
+  @Roles(Rol.ALUMNO)
+  @Post('/test-stats-by-category/')
+  async getTestStatsByCategory(@Body() body: DateRangeDto, @Request() req) {
     const { id } = req.user;
-    return this.service.obtainTestStats(id, Number(idTest));
+    return this.service.getTestStatsByCategory(body, id);
   }
 }

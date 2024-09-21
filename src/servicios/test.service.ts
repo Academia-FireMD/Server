@@ -6,11 +6,15 @@ import {
   Pregunta,
   Respuesta,
   SeguridadAlResponder,
+  Tema,
   Test,
+  TestPregunta,
   TestStatus,
 } from '@prisma/client';
+import { firstValueFrom, forkJoin, from, map, mergeMap, of } from 'rxjs';
 import { NewTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
+import { DateRangeDto } from 'src/dtos/range.dto';
 import { RegistrarRespuestaDto } from 'src/dtos/registrar-respuesta.dto';
 import { PaginatedResult, PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
@@ -56,18 +60,187 @@ export class RespuestaPaginatedService extends PaginatedService<Respuesta> {
 }
 
 @Injectable()
-export class TestService {
+export class TestService extends PaginatedService<Test> {
+  private includeQuery = {
+    realizador: true,
+    testPreguntas: {
+      include: {
+        pregunta: {
+          include: {
+            tema: true,
+          },
+        },
+      },
+    },
+  };
+
   constructor(
     protected prisma: PrismaService,
     private paginatedService: RespuestaPaginatedService,
-  ) {}
+  ) {
+    super(prisma);
+  }
 
-  public async obtainTestStats(userId: number, testId: number) {
-    const foundTest = await this.prisma.test.findFirst({
-      where: {
-        id: testId,
-        realizadorId: userId,
+  protected getModelName(): string {
+    return 'test';
+  }
+
+  public getAllTestsAlumno(dto: PaginationDto, userId: number) {
+    return from(
+      this.getPaginatedData(
+        dto,
+        {
+          realizadorId: userId,
+          status: TestStatus.FINALIZADO,
+          realizador: {
+            email: {
+              contains: dto.searchTerm ?? '',
+              mode: 'insensitive',
+            },
+          },
+          ...dto.where,
+        },
+        this.includeQuery,
+      ),
+    ).pipe(
+      mergeMap((res) => {
+        if (res.data.length == 0) return of(res);
+        return forkJoin(
+          res.data.map((entry) =>
+            from(this.obtainTestStats(userId, entry.id)).pipe(
+              map((stats) => ({
+                ...entry,
+                stats,
+              })),
+            ),
+          ),
+        ).pipe(
+          map((dataWithStats) => ({
+            data: dataWithStats,
+            pagination: res.pagination,
+          })),
+        );
+      }),
+    );
+  }
+
+  public getAllTestsAdmin(dto: PaginationDto) {
+    return from(
+      this.getPaginatedData(
+        dto,
+        {
+          ...dto.where,
+          status: TestStatus.FINALIZADO,
+          realizador: {
+            email: {
+              contains: dto.searchTerm ?? '',
+              mode: 'insensitive',
+            },
+          },
+        },
+        this.includeQuery,
+      ),
+    ).pipe(
+      mergeMap((res) => {
+        if (res.data.length == 0) return of(res);
+        return this.addStatToTests(res.data).pipe(
+          map((dataWithStats) => ({
+            data: dataWithStats,
+            pagination: res.pagination,
+          })),
+        );
+      }),
+    );
+  }
+
+  async getTestStatsByCategory(dto: DateRangeDto, realizadorId?: number) {
+    const where = {
+      createdAt: {
+        gte: dto.from,
+        lte: dto.to,
       },
+      status: TestStatus.FINALIZADO,
+    } as any;
+    where['realizadorId'] = realizadorId;
+    const tests = await this.prisma.test.findMany({
+      where,
+      include: {
+        testPreguntas: {
+          include: {
+            pregunta: {
+              include: {
+                tema: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (tests.length == 0) {
+      return {};
+    }
+    const testWithStats = await firstValueFrom(this.addStatToTests(tests));
+    const groupedStats = this.groupTestsByCategory(testWithStats as any);
+    return groupedStats;
+  }
+
+  private addStatToTests(tests: Array<Test>) {
+    return forkJoin(
+      tests.map((entry) =>
+        from(this.obtainTestStats(entry.realizadorId, entry.id)).pipe(
+          map((stats) => ({
+            ...entry,
+            stats,
+          })),
+        ),
+      ),
+    );
+  }
+
+  groupTestsByCategory(
+    tests: (Test & {
+      testPreguntas: (TestPregunta & { pregunta: Pregunta & { tema: Tema } })[];
+    })[],
+  ) {
+    const groupedTests = {
+      mixto: [] as Test[],
+    };
+
+    for (const test of tests) {
+      const categorias = new Set<string>();
+
+      for (const testPregunta of test.testPreguntas) {
+        const categoria = testPregunta.pregunta.tema.categoria;
+        categorias.add(categoria); // Añadimos la categoría al Set
+      }
+
+      if (categorias.size > 1) {
+        groupedTests.mixto.push(test); // Si tiene varias categorías, lo asignamos a 'mixto'
+      } else {
+        const categoria = Array.from(categorias)[0]; // Obtenemos la única categoría
+
+        if (!groupedTests[categoria]) {
+          groupedTests[categoria] = [];
+        }
+
+        groupedTests[categoria].push(test);
+      }
+    }
+
+    return groupedTests;
+  }
+
+  public async obtainTestStats(
+    userId: number,
+    testId: number,
+    isAdmin = false,
+  ) {
+    const where = {
+      id: testId,
+    };
+    if (!isAdmin) where['realizadorId'] = userId;
+    const foundTest = await this.prisma.test.findFirst({
+      where,
       include: {
         testPreguntas: {
           include: {
@@ -522,6 +695,7 @@ export class TestService {
         realizadorId: userId,
         status: TestStatus.CREADO,
         duration: dto.duracion,
+        esDeRepaso: dto.generarTestDeRepaso ?? false,
         endsAt: dto.duracion
           ? new Date(Date.now() + dto.duracion * 60000)
           : null,
