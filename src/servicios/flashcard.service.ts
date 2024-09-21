@@ -740,6 +740,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       let temaExistente = await this.prisma.tema.findFirst({
         where: {
           numero: entry['Tema'] + '',
+          categoria: entry['Categoría'],
         },
       });
 

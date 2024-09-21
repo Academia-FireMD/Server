@@ -116,6 +116,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
       let temaExistente = await this.prisma.tema.findFirst({
         where: {
           numero: entry['Tema'] + '',
+          categoria: entry['Categoría'],
         },
       });
 
