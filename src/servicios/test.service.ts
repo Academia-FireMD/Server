@@ -143,7 +143,7 @@ export class TestService extends PaginatedService<Test> {
     ).pipe(
       mergeMap((res) => {
         if (res.data.length == 0) return of(res);
-        return this.addStatToTests(res.data).pipe(
+        return from(this.addStatToTests(res.data)).pipe(
           map((dataWithStats) => ({
             data: dataWithStats,
             pagination: res.pagination,
@@ -179,22 +179,25 @@ export class TestService extends PaginatedService<Test> {
     if (tests.length == 0) {
       return {};
     }
-    const testWithStats = await firstValueFrom(this.addStatToTests(tests));
+    const testWithStats = await this.addStatToTests(tests);
     const groupedStats = this.groupTestsByCategory(testWithStats as any);
     return groupedStats;
   }
 
-  private addStatToTests(tests: Array<Test>) {
-    return forkJoin(
-      tests.map((entry) =>
-        from(this.obtainTestStats(entry.realizadorId, entry.id)).pipe(
+  private async addStatToTests(tests: Array<Test>) {
+    const res = [];
+    for (let test of tests) {
+      test = await firstValueFrom(
+        from(this.obtainTestStats(test.realizadorId, test.id)).pipe(
           map((stats) => ({
-            ...entry,
+            ...test,
             stats,
           })),
         ),
-      ),
-    );
+      );
+      res.push(test);
+    }
+    return res;
   }
 
   groupTestsByCategory(

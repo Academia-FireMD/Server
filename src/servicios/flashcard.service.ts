@@ -603,23 +603,23 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       },
     });
 
-    const testWithStats = await firstValueFrom(
-      this.addStatsToTest(flashcardTests),
-    );
-
+    const testWithStats = await this.addStatsToTest(flashcardTests);
     return this.groupFlashcardsByCategory(testWithStats as any);
   }
-  addStatsToTest(tests: Array<FlashcardTest>) {
-    return forkJoin(
-      tests.map((entry) =>
-        from(this.obtainFlashcardTestStats(entry.realizadorId, entry.id)).pipe(
+  async addStatsToTest(tests: Array<FlashcardTest>) {
+    const res = [];
+    for (let test of tests) {
+      test = await firstValueFrom(
+        from(this.obtainFlashcardTestStats(test.realizadorId, test.id)).pipe(
           map((stats) => ({
-            ...entry,
+            ...test,
             stats,
           })),
         ),
-      ),
-    );
+      );
+      res.push(test);
+    }
+    return res;
   }
 
   groupFlashcardsByCategory(
