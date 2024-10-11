@@ -781,7 +781,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         data: {
           identificador: identificador.toString(),
           descripcion: entry['Descripción'] + '',
-          solucion: entry['Solución'] + '' ?? '',
+          solucion: (entry['Solución'] ?? '') + '',
           temaId: temaExistente.id,
           dificultad: dificultadEnum,
           relevancia: relevanciaArray,
