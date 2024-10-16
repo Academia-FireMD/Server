@@ -10,7 +10,7 @@ import {
   Tema,
   TestStatus,
 } from '@prisma/client';
-import { firstValueFrom, forkJoin, from, map, mergeMap, of } from 'rxjs';
+import { firstValueFrom, from, map, mergeMap, of, toArray } from 'rxjs';
 import { NewFlashcardTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { DateRangeDto } from 'src/dtos/range.dto';
@@ -367,14 +367,14 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       flashcardsDisponibles = flashcardsMalYRevisar;
 
       // Si hay menos flashcards que las solicitadas, repetir las que fueron MAL o REVISAR
-      if (flashcardsDisponibles.length < numPreguntas) {
-        const faltantes = numPreguntas - flashcardsDisponibles.length;
-        for (let i = 0; i < faltantes; i++) {
-          const flashcardRepetida =
-            flashcardsDisponibles[i % flashcardsDisponibles.length]; // Repetir cíclicamente
-          flashcardsDisponibles.push(flashcardRepetida);
-        }
-      }
+      // if (flashcardsDisponibles.length < numPreguntas) {
+      //   const faltantes = numPreguntas - flashcardsDisponibles.length;
+      //   for (let i = 0; i < faltantes; i++) {
+      //     const flashcardRepetida =
+      //       flashcardsDisponibles[i % flashcardsDisponibles.length]; // Repetir cíclicamente
+      //     flashcardsDisponibles.push(flashcardRepetida);
+      //   }
+      // }
     } else {
       // Para un test normal (no de repaso), selecciona las flashcards basadas en temas y dificultades
       const todasLasFlashcards = await this.prisma.flashcardData.findMany({
@@ -854,20 +854,23 @@ export class FlashcardTestService extends PaginatedService<FlashcardTest> {
   }
 
   public addStatsToTest(tests: Array<FlashcardTest>) {
-    return forkJoin(
-      tests.map((entry) =>
-        from(
-          this.flashcardService.obtainFlashcardTestStats(
-            entry.realizadorId,
-            entry.id,
+    return from(tests).pipe(
+      mergeMap(
+        (entry) =>
+          from(
+            this.flashcardService.obtainFlashcardTestStats(
+              entry.realizadorId,
+              entry.id,
+            ),
+          ).pipe(
+            map((stats) => ({
+              ...entry,
+              stats,
+            })),
           ),
-        ).pipe(
-          map((stats) => ({
-            ...entry,
-            stats,
-          })),
-        ),
+        5, // Limita la concurrencia a 5 peticiones simultáneas
       ),
+      toArray(), // Convierte el stream de observables en un array
     );
   }
 

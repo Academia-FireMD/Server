@@ -11,7 +11,7 @@ import {
   TestPregunta,
   TestStatus,
 } from '@prisma/client';
-import { firstValueFrom, forkJoin, from, map, mergeMap, of } from 'rxjs';
+import { firstValueFrom, from, map, mergeMap, of, toArray } from 'rxjs';
 import { NewTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { DateRangeDto } from 'src/dtos/range.dto';
@@ -105,16 +105,18 @@ export class TestService extends PaginatedService<Test> {
     ).pipe(
       mergeMap((res) => {
         if (res.data.length == 0) return of(res);
-        return forkJoin(
-          res.data.map((entry) =>
-            from(this.obtainTestStats(userId, entry.id)).pipe(
-              map((stats) => ({
-                ...entry,
-                stats,
-              })),
-            ),
+        return from(res.data).pipe(
+          mergeMap(
+            (entry) =>
+              from(this.obtainTestStats(userId, entry.id)).pipe(
+                map((stats) => ({
+                  ...entry,
+                  stats,
+                })),
+              ),
+            5, // Limita la concurrencia a 5 peticiones simultáneas
           ),
-        ).pipe(
+          toArray(),
           map((dataWithStats) => ({
             data: dataWithStats,
             pagination: res.pagination,
@@ -252,17 +254,6 @@ export class TestService extends PaginatedService<Test> {
         },
       },
     });
-
-    if (this.examenTestHasExpired(foundTest)) {
-      await this.prisma.test.update({
-        where: { id: testId },
-        data: {
-          status: TestStatus.FINALIZADO,
-        },
-      });
-      foundTest.status = TestStatus.FINALIZADO;
-    }
-
     if (!foundTest) {
       throw new BadRequestException('El test no existe!');
     }
@@ -659,14 +650,14 @@ export class TestService extends PaginatedService<Test> {
       preguntasDisponibles = fallos.map((fallo) => fallo.pregunta);
 
       // Si hay más preguntas solicitadas de las disponibles, repetir las preguntas
-      if (preguntasDisponibles.length < dto.numPreguntas) {
-        const faltantes = dto.numPreguntas - preguntasDisponibles.length;
-        for (let i = 0; i < faltantes; i++) {
-          const preguntaRepetida =
-            preguntasDisponibles[i % preguntasDisponibles.length];
-          preguntasDisponibles.push(preguntaRepetida);
-        }
-      }
+      // if (preguntasDisponibles.length < dto.numPreguntas) {
+      //   const faltantes = dto.numPreguntas - preguntasDisponibles.length;
+      //   for (let i = 0; i < faltantes; i++) {
+      //     const preguntaRepetida =
+      //       preguntasDisponibles[i % preguntasDisponibles.length];
+      //     preguntasDisponibles.push(preguntaRepetida);
+      //   }
+      // }
     } else {
       // Obtener preguntas disponibles según los filtros normales
       preguntasDisponibles = await this.prisma.pregunta.findMany({
