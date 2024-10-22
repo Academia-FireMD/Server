@@ -170,6 +170,8 @@ model Usuario {
   id             Int             @id @default(autoincrement())
   email          String          @unique
   contrasenya    String
+  nombre         String         @default("")
+  apellidos      String          @default("")
   rol            Rol             @default(ALUMNO)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -179,6 +181,12 @@ model Usuario {
   comunidad      Comunidad       @default(VALENCIA)
   Feedback       Feedback[]
   ReporteFallo   ReporteFallo[]
+  esTutor Boolean @default(false)
+
+  // Relación tutor-alumno
+  tutorId        Int?            // Clave foránea opcional
+  tutor          Usuario?        @relation("TutorAlumno", fields: [tutorId], references: [id])
+  alumnos        Usuario[]       @relation("TutorAlumno")
 }
 
 model Feedback {

@@ -269,7 +269,11 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         flashcards: {
           include: {
             respuesta: true,
-            flashcard: true,
+            flashcard: {
+              include: {
+                tema: true,
+              },
+            },
           },
         },
       },

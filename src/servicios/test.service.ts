@@ -389,6 +389,7 @@ export class TestService extends PaginatedService<Test> {
                 solucion: true,
                 respuestas: true,
                 seguridad: true,
+                tema: true,
               },
             },
           },

@@ -20,8 +20,15 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() body: RegisterDto) {
-    const { email, password, comunidad } = body;
-    await this.usersService.createUser(email, password, comunidad);
+    const { email, password, comunidad, nombre, apellidos, tutorId } = body;
+    await this.usersService.createUser(
+      email,
+      password,
+      comunidad,
+      nombre,
+      apellidos,
+      tutorId,
+    );
     return { message: 'Usuario registrado exitosamente' };
   }
 

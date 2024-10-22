@@ -2,10 +2,12 @@ import { Comunidad } from '@prisma/client';
 import {
   IsEmail,
   IsEnum,
+  IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Matches,
-  MinLength,
+  MinLength
 } from 'class-validator';
 
 export class RegisterDto {
@@ -24,9 +26,21 @@ export class RegisterDto {
   )
   password: string;
 
+  @IsString()
+  @IsNotEmpty({ message: 'El nombre es obligatorio' })
+  nombre: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Los apellidos son obligatorios' })
+  apellidos: string;
+
   @IsEnum(Comunidad, {
     message: 'La comunidad seleccionada no es válida',
   })
   @IsNotEmpty({ message: 'La comunidad es obligatoria' })
   comunidad: Comunidad;
+
+  @IsOptional()
+  @IsInt({ message: 'El ID del tutor debe ser un número entero' })
+  tutorId?: number;
 }
