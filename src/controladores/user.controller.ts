@@ -61,7 +61,7 @@ export class UserController {
       },
     });
   }
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
   @Post('update/:id')
   async updateUser(
     @Param('id') id: string,
