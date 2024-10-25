@@ -612,106 +612,109 @@ export class TestService extends PaginatedService<Test> {
     dto: NewTestDto,
     userComunidad: Comunidad,
   ) {
-    // Verificar si el usuario tiene tests en progreso o creados
-    const testEnProgreso = await this.prisma.test.findFirst({
-      where: {
-        realizadorId: userId,
-        status: { in: [TestStatus.CREADO, TestStatus.EMPEZADO] },
-      },
-    });
-
-    if (testEnProgreso) {
-      throw new BadRequestException('Tienes algún test ya empezado o creado!');
-    }
-
-    let preguntasDisponibles: Pregunta[];
-
-    if (dto.generarTestDeRepaso) {
-      // Obtener preguntas donde el usuario ha fallado
-      const fallos = await this.prisma.respuesta.findMany({
+    const test = await this.prisma.$transaction(async (prisma) => {
+      // Verificar si el usuario tiene tests en progreso o creados
+      const testEnProgreso = await prisma.test.findFirst({
         where: {
-          test: {
-            realizadorId: userId,
-            status: 'FINALIZADO',
-          },
-          esCorrecta: false,
-        },
-        include: {
-          pregunta: true,
+          realizadorId: userId,
+          status: { in: [TestStatus.CREADO, TestStatus.EMPEZADO] },
         },
       });
 
-      if (fallos.length === 0) {
+      if (testEnProgreso) {
         throw new BadRequestException(
-          'No tienes preguntas falladas para generar un test de repaso.',
+          'Tienes algún test ya empezado o creado!',
         );
       }
 
-      // Extraer las preguntas falladas
-      preguntasDisponibles = fallos.map((fallo) => fallo.pregunta);
+      let preguntasDisponibles: Pregunta[];
 
-      // Si hay más preguntas solicitadas de las disponibles, repetir las preguntas
-      // if (preguntasDisponibles.length < dto.numPreguntas) {
-      //   const faltantes = dto.numPreguntas - preguntasDisponibles.length;
-      //   for (let i = 0; i < faltantes; i++) {
-      //     const preguntaRepetida =
-      //       preguntasDisponibles[i % preguntasDisponibles.length];
-      //     preguntasDisponibles.push(preguntaRepetida);
-      //   }
-      // }
-    } else {
-      // Obtener preguntas disponibles según los filtros normales
-      preguntasDisponibles = await this.prisma.pregunta.findMany({
-        where: {
-          temaId: { in: dto.temas },
-          relevancia: {
-            has: userComunidad,
+      if (dto.generarTestDeRepaso) {
+        // Obtener preguntas donde el usuario ha fallado
+        const fallos = await prisma.respuesta.findMany({
+          where: {
+            test: {
+              realizadorId: userId,
+              status: 'FINALIZADO',
+            },
+            esCorrecta: false,
           },
+          include: {
+            pregunta: true,
+          },
+        });
+
+        if (fallos.length === 0) {
+          throw new BadRequestException(
+            'No tienes preguntas falladas para generar un test de repaso.',
+          );
+        }
+
+        // Extraer las preguntas falladas
+        preguntasDisponibles = fallos.map((fallo) => fallo.pregunta);
+
+        // Si hay más preguntas solicitadas de las disponibles, repetir las preguntas
+        // if (preguntasDisponibles.length < dto.numPreguntas) {
+        //   const faltantes = dto.numPreguntas - preguntasDisponibles.length;
+        //   for (let i = 0; i < faltantes; i++) {
+        //     const preguntaRepetida =
+        //       preguntasDisponibles[i % preguntasDisponibles.length];
+        //     preguntasDisponibles.push(preguntaRepetida);
+        //   }
+        // }
+      } else {
+        // Obtener preguntas disponibles según los filtros normales
+        preguntasDisponibles = await prisma.pregunta.findMany({
+          where: {
+            temaId: { in: dto.temas },
+            relevancia: {
+              has: userComunidad,
+            },
+          },
+        });
+
+        if (preguntasDisponibles.length === 0) {
+          throw new BadRequestException(
+            'No hay preguntas disponibles para los temas seleccionados.',
+          );
+        }
+
+        // Seleccionar preguntas según la dificultad y cantidad solicitada
+        preguntasDisponibles = this.seleccionarPreguntasPorDificultad(
+          preguntasDisponibles,
+          dto.numPreguntas,
+          dto.dificultad,
+        );
+      }
+
+      // Crear el test en la base de datos
+      const test = await prisma.test.create({
+        data: {
+          realizadorId: userId,
+          status: TestStatus.CREADO,
+          duration: dto.duracion,
+          esDeRepaso: dto.generarTestDeRepaso ?? false,
+          endsAt: dto.duracion
+            ? new Date(Date.now() + dto.duracion * 60000)
+            : null,
         },
       });
 
-      if (preguntasDisponibles.length === 0) {
-        throw new BadRequestException(
-          'No hay preguntas disponibles para los temas seleccionados.',
-        );
-      }
+      // Crear las entradas en TestPregunta
+      const testPreguntasData = preguntasDisponibles
+        .slice(0, dto.numPreguntas)
+        .map((pregunta) => ({
+          testId: test.id,
+          preguntaId: pregunta.id,
+        }));
 
-      // Seleccionar preguntas según la dificultad y cantidad solicitada
-      preguntasDisponibles = this.seleccionarPreguntasPorDificultad(
-        preguntasDisponibles,
-        dto.numPreguntas,
-        dto.dificultad,
-      );
-    }
-
-    // Crear el test en la base de datos
-    const test = await this.prisma.test.create({
-      data: {
-        realizadorId: userId,
-        status: TestStatus.CREADO,
-        duration: dto.duracion,
-        esDeRepaso: dto.generarTestDeRepaso ?? false,
-        endsAt: dto.duracion
-          ? new Date(Date.now() + dto.duracion * 60000)
-          : null,
-      },
+      await prisma.testPregunta.createMany({
+        data: testPreguntasData,
+      });
+      return test;
     });
-
-    // Crear las entradas en TestPregunta
-    const testPreguntasData = preguntasDisponibles
-      .slice(0, dto.numPreguntas)
-      .map((pregunta) => ({
-        testId: test.id,
-        preguntaId: pregunta.id,
-      }));
-
-    await this.prisma.testPregunta.createMany({
-      data: testPreguntasData,
-    });
-
     // Recuperar el test con las preguntas asociadas
     const testConPreguntas = await this.getTestById(test.id);
-
     return testConPreguntas;
   }
 
@@ -731,7 +734,7 @@ export class TestService extends PaginatedService<Test> {
       BASICO: preguntas.filter((p) => p.dificultad === Dificultad.BASICO),
     };
 
-    const seleccionadas: Pregunta[] = [];
+    let seleccionadas: Pregunta[] = [];
 
     const seleccionarConRepeticion = (
       listaPreguntas: Pregunta[],
@@ -765,6 +768,8 @@ export class TestService extends PaginatedService<Test> {
         Math.round(distribucion.facil * numPreguntas),
       ),
     );
+
+    seleccionadas = seleccionadas.filter((e) => !!e);
 
     while (seleccionadas.length < numPreguntas) {
       const indice = Math.floor(Math.random() * preguntas.length);
