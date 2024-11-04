@@ -23,7 +23,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migrate:dev": "npx prisma migrate dev",
     "migrate:deploy": "npx prisma migrate deploy",
-    "generate-client": "npx prisma generate",
+    "generate-client": "npx prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
