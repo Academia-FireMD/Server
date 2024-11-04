@@ -24,7 +24,7 @@
     "migrate:dev": "npx prisma migrate dev",
     "migrate:deploy": "npx prisma migrate deploy",
     "generate-client": "npx prisma generate",
-    "heroku-postbuild": "prisma generate"
+    "heroku-postbuild": "npm run build && prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
