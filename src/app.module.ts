@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { AuthController } from './controladores/auth.controller';
 import { FactorController } from './controladores/factor.controller';
 import { FlashcardDataController } from './controladores/flashcards.controller';
+import { PlanificacionController } from './controladores/planification.controller';
 import { PreguntasController } from './controladores/preguntas.controller';
 import { ReporteFalloController } from './controladores/reporte-fallos.controller';
 import { TemaController } from './controladores/tema.controller';
@@ -21,6 +22,7 @@ import {
   FlashcardService,
   FlashcardTestService,
 } from './servicios/flashcard.service';
+import { PlanificacionService } from './servicios/planification.service';
 import { PreguntasService } from './servicios/preguntas.service';
 import { PrismaService } from './servicios/prisma.service';
 import { ReporteFalloService } from './servicios/reporte-fallo.service';
@@ -51,6 +53,7 @@ import { UsersService } from './servicios/user.service';
     ReporteFalloController,
     TemaController,
     FlashcardDataController,
+    PlanificacionController,
   ],
   providers: [
     ConfigService,
@@ -69,6 +72,7 @@ import { UsersService } from './servicios/user.service';
     TemaService,
     FlashcardService,
     FlashcardTestService,
+    PlanificacionService,
   ],
 })
 export class AppModule {}

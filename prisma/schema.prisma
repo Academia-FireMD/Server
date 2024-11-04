@@ -50,7 +50,7 @@ model Test {
   updatedAt     DateTime       @updatedAt
   duration      Int?
   endsAt        DateTime?
-  esDeRepaso Boolean         @default(false)
+  esDeRepaso    Boolean        @default(false)
 }
 
 model Pregunta {
@@ -74,24 +74,24 @@ model Pregunta {
 }
 
 model FlashcardTest {
-  id         Int                 @id @default(autoincrement())
-  realizador Usuario             @relation(fields: [realizadorId], references: [id], onDelete: Cascade)
-  realizadorId  Int
-  flashcards FlashcardTestItem[] // Relación con cascada en FlashcardTestItem
-  status     TestStatus          @default(CREADO)
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
-  esDeRepaso Boolean         @default(false)
+  id           Int                 @id @default(autoincrement())
+  realizador   Usuario             @relation(fields: [realizadorId], references: [id], onDelete: Cascade)
+  realizadorId Int
+  flashcards   FlashcardTestItem[] // Relación con cascada en FlashcardTestItem
+  status       TestStatus          @default(CREADO)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  esDeRepaso   Boolean             @default(false)
 }
 
 model FlashcardTestItem {
-  id          Int                  @id @default(autoincrement())
-  flashcard   FlashcardData        @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+  id          Int                 @id @default(autoincrement())
+  flashcard   FlashcardData       @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
   flashcardId Int
-  test        FlashcardTest        @relation(fields: [testId], references: [id], onDelete: Cascade)  // Asegurar cascada aquí
+  test        FlashcardTest       @relation(fields: [testId], references: [id], onDelete: Cascade) // Asegurar cascada aquí
   testId      Int
-  respuesta   FlashcardRespuesta?  // Relación opcional
-  createdAt   DateTime             @default(now())
+  respuesta   FlashcardRespuesta? // Relación opcional
+  createdAt   DateTime            @default(now())
 }
 
 model FlashcardRespuesta {
@@ -99,7 +99,7 @@ model FlashcardRespuesta {
   flashcard   FlashcardData     @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
   flashcardId Int
   testItem    FlashcardTestItem @relation(fields: [testItemId], references: [id], onDelete: Cascade) // Asegurar cascada aquí
-  testItemId  Int               @unique  
+  testItemId  Int               @unique
   estado      EstadoFlashcard   @default(REVISAR)
   createdAt   DateTime          @default(now())
 }
@@ -166,11 +166,11 @@ model Respuesta {
   updatedAt     DateTime              @updatedAt
 }
 
-model Usuario { 
+model Usuario {
   id             Int             @id @default(autoincrement())
   email          String          @unique
   contrasenya    String
-  nombre         String         @default("")
+  nombre         String          @default("")
   apellidos      String          @default("")
   rol            Rol             @default(ALUMNO)
   createdAt      DateTime        @default(now())
@@ -181,12 +181,15 @@ model Usuario {
   comunidad      Comunidad       @default(VALENCIA)
   Feedback       Feedback[]
   ReporteFallo   ReporteFallo[]
-  esTutor Boolean @default(false)
+  esTutor        Boolean         @default(false)
 
   // Relación tutor-alumno
-  tutorId        Int?            // Clave foránea opcional
-  tutor          Usuario?        @relation("TutorAlumno", fields: [tutorId], references: [id])
-  alumnos        Usuario[]       @relation("TutorAlumno")
+  tutorId Int? // Clave foránea opcional
+  tutor   Usuario?  @relation("TutorAlumno", fields: [tutorId], references: [id])
+  alumnos Usuario[] @relation("TutorAlumno")
+
+  // Relación con planificaciones mensuales a través de AsignacionAlumno
+  asignaciones AsignacionAlumno[]
 }
 
 model Feedback {
@@ -205,7 +208,7 @@ model Feedback {
 
 model ReporteFallo {
   id              Int            @id @default(autoincrement())
-  pregunta        Pregunta?       @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  pregunta        Pregunta?      @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
   preguntaId      Int?
   usuario         Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId       Int
@@ -214,6 +217,84 @@ model ReporteFallo {
   updatedAt       DateTime       @default(now())
   FlashcardData   FlashcardData? @relation(fields: [flashcardDataId], references: [id])
   flashcardDataId Int?
+}
+
+model PlanificacionBloque {
+  id                     Int                   @id @default(autoincrement())
+  identificador                 String
+  descripcion            String?
+  subBloques             SubBloque[] // Relación con SubBloques
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  DiaSemana              DiaSemana?            @relation(fields: [diaSemanaId], references: [id])
+  diaSemanaId            Int?
+  PlanificacionMensual   PlanificacionMensual? @relation(fields: [planificacionMensualId], references: [id])
+  planificacionMensualId Int?
+}
+
+model SubBloque {
+  id          Int                 @id @default(autoincrement())
+  horaInicio  DateTime? 
+  duracion    Int
+  nombre        String 
+  comentarios String? 
+  bloqueId    Int 
+  bloque      PlanificacionBloque @relation(fields: [bloqueId], references: [id], onDelete: Cascade)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model PlantillaSemanal {
+  id              Int                             @id @default(autoincrement())
+  nombre          String
+  descripcion     String?
+  dias            DiaSemana[] // Relación con los días de la semana
+  planificaciones PlanificacionMensualPlantilla[] // Relación con las planificaciones mensuales a través de la tabla intermedia
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+}
+
+model DiaSemana {
+  id          Int                   @id @default(autoincrement())
+  dia         String // Lunes, Martes, etc.
+  bloques     PlanificacionBloque[] // Relación con los bloques del día
+  plantillaId Int // Relación con la Plantilla Semanal
+  plantilla   PlantillaSemanal      @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+}
+
+model PlanificacionMensual {
+  id           Int                             @id @default(autoincrement())
+  nombre       String
+  descripcion  String?
+  mes          Int // Mes (1-12)
+  ano          Int // Año
+  plantillas   PlanificacionMensualPlantilla[] // Relación con las plantillas semanales a través de la tabla intermedia
+  bloques      PlanificacionBloque[] // Bloques adicionales o personalizados para la planificación mensual
+  asignaciones AsignacionAlumno[] // Relación con las asignaciones de alumnos a través de la tabla intermedia
+  createdAt    DateTime                        @default(now())
+  updatedAt    DateTime                        @updatedAt
+}
+
+model PlanificacionMensualPlantilla {
+  plantillaId     Int
+  planificacionId Int
+
+  plantilla     PlantillaSemanal     @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
+  planificacion PlanificacionMensual @relation(fields: [planificacionId], references: [id], onDelete: Cascade)
+
+  @@id([plantillaId, planificacionId]) // Llave primaria compuesta para evitar duplicados
+}
+
+model AsignacionAlumno {
+  alumnoId        Int
+  planificacionId Int
+
+  alumno        Usuario              @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+  planificacion PlanificacionMensual @relation(fields: [planificacionId], references: [id], onDelete: Cascade)
+
+  @@id([alumnoId, planificacionId]) // Llave primaria compuesta para evitar duplicados
 }
 
 enum FactorName {
