@@ -47,6 +47,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
 
     const jsonData = XLSX.utils.sheet_to_json(sheet);
     let insertados = 0;
+    let ignorados = 0;
     for (const entry of jsonData) {
       if (!entry['identificador']) {
         console.log('No hay identificador, ignorando');
@@ -65,6 +66,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
           `Bloque con identificador ${entry['identificador']} ya existe. Agregando sub-bloques...`,
         );
         bloque = existingBloque;
+        ignorados++;
       } else {
         bloque = await this.prisma.planificacionBloque.create({
           data: {
@@ -89,7 +91,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     return {
       message: 'Archivo procesado exitosamente',
       count: insertados,
-      ignoradas: jsonData.length - insertados,
+      ignoradas: ignorados,
     };
   }
 
