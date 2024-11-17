@@ -57,7 +57,7 @@ export class AuthService {
       },
     });
 
-    const resetLink = `${process.env.HOST_FRONT}/reset-password?token=${resetToken}`;
+    const resetLink = `${process.env.HOST_FRONT}/auth/reset-password?token=${resetToken}`;
     await this.emailService.sendPasswordResetEmail(user.email, resetLink);
   }
 
