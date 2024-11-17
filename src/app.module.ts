@@ -16,13 +16,17 @@ import { TestController } from './controladores/test.controller';
 import { UserController } from './controladores/user.controller';
 import { JwtStrategy } from './jwt/jwt.strategy';
 import { AuthService } from './servicios/auth.service';
+import { EmailService } from './servicios/email.service';
 import { FactorService } from './servicios/factor.service';
 import { FeedbackService } from './servicios/feedback.service';
 import {
   FlashcardService,
   FlashcardTestService,
 } from './servicios/flashcard.service';
-import { PlanificacionService } from './servicios/planification.service';
+import {
+  PlanificacionService,
+  PlantillaSemanalService,
+} from './servicios/planification.service';
 import { PreguntasService } from './servicios/preguntas.service';
 import { PrismaService } from './servicios/prisma.service';
 import { ReporteFalloService } from './servicios/reporte-fallo.service';
@@ -73,6 +77,8 @@ import { UsersService } from './servicios/user.service';
     FlashcardService,
     FlashcardTestService,
     PlanificacionService,
+    PlantillaSemanalService,
+    EmailService,
   ],
 })
 export class AppModule {}

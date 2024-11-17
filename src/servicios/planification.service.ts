@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PlanificacionBloque } from '@prisma/client';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   CreateBloqueDto,
+  CreateOrUpdatePlantillaSemanalDto,
   CreatePlanificacionMensualDto,
-  CreatePlantillaSemanalDto,
   UpdateBloqueDto,
 } from 'src/dtos/planificacion.dto';
 import * as XLSX from 'xlsx';
@@ -12,8 +12,21 @@ import { PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
-export class PlanificacionService extends PaginatedService<PlanificacionBloque> {
+export class PlantillaSemanalService extends PaginatedService<PlantillaSemanalService> {
   constructor(protected prisma: PrismaService) {
+    super(prisma);
+  }
+  protected getModelName(): string {
+    return 'plantillaSemanal';
+  }
+}
+
+@Injectable()
+export class PlanificacionService extends PaginatedService<PlanificacionBloque> {
+  constructor(
+    protected prisma: PrismaService,
+    private plantillaSemanal: PlantillaSemanalService,
+  ) {
     super(prisma);
   }
 
@@ -21,6 +34,41 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     return this.prisma.planificacionBloque.delete({
       where: {
         id: Number(bloqueId),
+      },
+    });
+  }
+
+  public async deletePlantillaSemanal(plantillaSemanalId: number) {
+    await this.prisma.$transaction(async (prisma) => {
+      const foundPlantillaSemanal = await prisma.plantillaSemanal.findFirst({
+        where: {
+          id: Number(plantillaSemanalId),
+        },
+        include: {
+          subBloques: true,
+        },
+      });
+      if (!foundPlantillaSemanal)
+        throw new BadRequestException('Esta plantilla semanal no existe!');
+      await prisma.subBloque.deleteMany({
+        where: {
+          id: {
+            in: foundPlantillaSemanal.subBloques.map((e) => e.id),
+          },
+        },
+      });
+      await prisma.plantillaSemanal.delete({
+        where: {
+          id: foundPlantillaSemanal.id,
+        },
+      });
+    });
+  }
+
+  public deletePlanificacionMensual(planificacionMensualId: string) {
+    return this.prisma.planificacionMensual.delete({
+      where: {
+        id: Number(planificacionMensualId),
       },
     });
   }
@@ -33,7 +81,12 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
   public getAllBloques(dto: PaginationDto) {
     return this.getPaginatedData(
       dto,
-      {},
+      {
+        identificador: {
+          contains: dto.searchTerm ?? '',
+          mode: 'insensitive',
+        },
+      },
       {
         subBloques: true,
       },
@@ -106,6 +159,17 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     });
   }
 
+  public getPlantillaSemanal(plantillaSemanalid: string) {
+    return this.prisma.plantillaSemanal.findFirst({
+      where: {
+        id: Number(plantillaSemanalid),
+      },
+      include: {
+        subBloques: true,
+      },
+    });
+  }
+
   // Crear un nuevo bloque
   public createBloque(dto: CreateBloqueDto) {
     return this.prisma.planificacionBloque.create({
@@ -160,32 +224,54 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
 
   // Obtener todas las plantillas semanales con paginación
   public getAllPlantillasSemanales(dto: PaginationDto) {
-    return this.getPaginatedData(dto, {}, { include: { dias: true } });
-  }
-
-  // Crear una nueva plantilla semanal
-  public createPlantillaSemanal(dto: CreatePlantillaSemanalDto) {
-    return this.prisma.plantillaSemanal.create({
-      data: {
-        nombre: dto.nombre,
-        descripcion: dto.descripcion,
-        dias: {
-          create: dto.dias.map((dia) => ({
-            dia: dia.dia,
-            bloques: {
-              connect: dia.bloques.map((bloqueId) => ({ id: bloqueId })),
-            },
-          })),
+    return this.plantillaSemanal.getPaginatedData(
+      dto,
+      {
+        identificador: {
+          contains: dto.searchTerm ?? '',
+          mode: 'insensitive',
         },
       },
+      {},
+    );
+  }
+
+  // Crear una nueva plantilla semanal con duplicación condicional de bloques
+  public async createPlantillaSemanal(dto: CreateOrUpdatePlantillaSemanalDto) {
+    const res = await this.prisma.$transaction(async (prisma) => {
+      if (dto.id) {
+        await this.deletePlantillaSemanal(Number(dto.id));
+      }
+      const plantillaSemanal = await prisma.plantillaSemanal.create({
+        data: {
+          identificador: dto.identificador,
+          descripcion: dto.descripcion,
+          subBloques: {
+            create: dto.subBloques.map((sb) => ({
+              horaInicio: sb.horaInicio,
+              duracion: sb.duracion,
+              nombre: sb.nombre,
+              comentarios: sb.comentarios,
+              color: sb.color,
+            })),
+          },
+        },
+      });
+      return plantillaSemanal;
     });
+    return res;
   }
 
   // Obtener todas las planificaciones mensuales con paginación
   public getAllPlanificacionesMensuales(dto: PaginationDto) {
     return this.getPaginatedData(
       dto,
-      {},
+      {
+        identificador: {
+          contains: dto.searchTerm ?? '',
+          mode: 'insensitive',
+        },
+      },
       { include: { plantillas: true, bloques: true } },
     );
   }

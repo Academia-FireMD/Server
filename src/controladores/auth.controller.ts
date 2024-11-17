@@ -10,7 +10,6 @@ import { LoginDto } from 'src/dtos/login.dto';
 import { RegisterDto } from 'src/dtos/register.dto';
 import { AuthService } from 'src/servicios/auth.service';
 import { UsersService } from 'src/servicios/user.service';
-
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -49,5 +48,18 @@ export class AuthController {
       );
     }
     return this.authService.login(user);
+  }
+
+  @Post('request-password-reset')
+  async requestPasswordReset(@Body('email') email: string) {
+    return this.authService.requestPasswordReset(email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(
+    @Body('token') token: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    return this.authService.resetPassword(token, newPassword);
   }
 }

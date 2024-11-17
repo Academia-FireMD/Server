@@ -1,7 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Usuario } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
+import { EmailService } from './email.service';
+import { PrismaService } from './prisma.service';
 import { UsersService } from './user.service';
 
 @Injectable()
@@ -9,6 +16,8 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private prisma: PrismaService,
+    private emailService: EmailService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<Usuario> {
@@ -29,5 +38,56 @@ export class AuthService {
     return {
       access_token: this.jwtService.sign(payload),
     };
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    const user = await this.prisma.usuario.findUnique({ where: { email } });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // Token válido por 1 hora
+
+    await this.prisma.usuario.update({
+      where: { email },
+      data: {
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: expires,
+      },
+    });
+
+    const resetLink = `${process.env.HOST_FRONT}/reset-password?token=${resetToken}`;
+    await this.emailService.sendPasswordResetEmail(user.email, resetLink);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    if (!token) throw new BadRequestException('El token no existe!');
+    const user = await this.prisma.usuario.findMany({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: {
+          gte: new Date(),
+        },
+      },
+    });
+    if (user.length > 1) {
+      throw new BadRequestException(
+        'No puede haber más de un usuario afectado!',
+      );
+    }
+    if (!user) {
+      throw new BadRequestException('Token invalido o expirado');
+    }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.usuario.update({
+      where: { id: user[0].id },
+      data: {
+        contrasenya: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
   }
 }

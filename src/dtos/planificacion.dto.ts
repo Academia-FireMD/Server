@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsDate,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -27,53 +28,49 @@ export class UpdateBloqueDto extends CreateBloqueDto {
   id?: number;
 }
 
-export class CreateSubBloqueDto {
-  @IsString()
-  @IsNotEmpty({ message: 'La hora de inicio es requerida.' })
-  horaInicio: string; // Formato 'HH:mm'
-
-  @IsInt()
-  @IsNotEmpty({
-    message: 'La duración es requerida y debe ser un número entero.',
-  })
-  duracion: number; // Duración en minutos
-
-  @IsString()
-  nombre: string;
-
-  @IsString()
+export class CreateOrUpdatePlantillaSemanalDto {
   @IsOptional()
-  comentarios?: string;
-
-  @IsNumber()
-  @IsOptional()
+  @IsInt({ message: 'El ID debe ser un número entero.' })
   id?: number;
-}
 
-export class CreatePlantillaSemanalDto {
   @IsString()
-  @IsNotEmpty({ message: 'El nombre de la plantilla es requerido.' })
-  nombre: string;
+  @IsNotEmpty({ message: 'El identificador de la plantilla es requerido.' })
+  identificador: string;
 
   @IsString()
   @IsOptional()
   descripcion?: string;
 
   @IsArray()
-  @IsNotEmpty({ message: 'Los días de la semana son requeridos.' })
-  dias: CreateDiaSemanaDto[];
+  @IsNotEmpty({ message: 'Los sub-bloques son requeridos.' })
+  subBloques: CreateSubBloqueDto[]; // Array de sub-bloques en lugar de días
 }
 
-export class CreateDiaSemanaDto {
+export class CreateSubBloqueDto {
+  @IsDate()
+  @IsNotEmpty({ message: 'La fecha y hora de inicio son requeridas.' })
+  horaInicio: Date;
+
+  @IsNumber()
+  @IsNotEmpty({ message: 'La duración es requerida.' })
+  duracion: number;
+
   @IsString()
-  @IsNotEmpty({ message: 'El día es requerido.' })
-  dia: string; // Ej: "Lunes", "Martes"
+  @IsNotEmpty({ message: 'El nombre del sub-bloque es requerido.' })
+  nombre: string;
 
-  @IsArray()
-  @IsNotEmpty({ message: 'Los bloques son requeridos.' })
-  bloques: number[]; // IDs de los bloques a asignar al día
+  @IsString()
+  @IsOptional()
+  comentarios?: string;
+
+  @IsString()
+  @IsOptional()
+  color?: string;
+
+  @IsNumber()
+  @IsOptional()
+  bloqueId?: number; // ID opcional del bloque al que pertenece el sub-bloque
 }
-
 export class CreatePlanificacionMensualDto {
   @IsString()
   @IsNotEmpty({ message: 'El nombre de la planificación es requerido.' })

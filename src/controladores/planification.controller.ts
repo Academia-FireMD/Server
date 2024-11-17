@@ -16,8 +16,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   CreateBloqueDto,
+  CreateOrUpdatePlantillaSemanalDto,
   CreatePlanificacionMensualDto,
-  CreatePlantillaSemanalDto,
   UpdateBloqueDto,
 } from 'src/dtos/planificacion.dto';
 import { PlanificacionService } from 'src/servicios/planification.service';
@@ -38,6 +38,12 @@ export class PlanificacionController {
   @Delete('/:id')
   async deleteBloque(@Param('id') id: string) {
     return this.service.deleteBloque(id);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Delete('/plantilla-semanal/:id')
+  async deletePlantillaSemanal(@Param('id') id: string) {
+    return this.service.deletePlantillaSemanal(Number(id));
   }
 
   @Roles(Rol.ADMIN)
@@ -69,8 +75,14 @@ export class PlanificacionController {
   // Crear una nueva planificacion semanal
   @Roles(Rol.ADMIN)
   @Post('/plantilla-semanal')
-  async createPlantillaSemanal(@Body() dto: CreatePlantillaSemanalDto) {
+  async createPlantillaSemanal(@Body() dto: CreateOrUpdatePlantillaSemanalDto) {
     return this.service.createPlantillaSemanal(dto);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Get('/plantillas-semanales/:id')
+  async getPlantillaSemanal(@Param('id') id: string) {
+    return this.service.getPlantillaSemanal(id);
   }
 
   // Visualizar planificaciones mensuales en una rejilla

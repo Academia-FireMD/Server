@@ -182,6 +182,8 @@ model Usuario {
   Feedback       Feedback[]
   ReporteFallo   ReporteFallo[]
   esTutor        Boolean         @default(false)
+  resetPasswordToken  String?
+  resetPasswordExpires DateTime?
 
   // Relación tutor-alumno
   tutorId Int? // Clave foránea opcional
@@ -226,43 +228,39 @@ model PlanificacionBloque {
   subBloques             SubBloque[] // Relación con SubBloques
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
-  DiaSemana              DiaSemana?            @relation(fields: [diaSemanaId], references: [id])
-  diaSemanaId            Int?
   PlanificacionMensual   PlanificacionMensual? @relation(fields: [planificacionMensualId], references: [id])
   planificacionMensualId Int?
+
+  origenBloqueId         Int?                  // ID del bloque original, si es una copia
+  origenBloque           PlanificacionBloque?  @relation("OriginalToDuplicate", fields: [origenBloqueId], references: [id])
+  duplicados             PlanificacionBloque[] @relation("OriginalToDuplicate")
 }
 
 model SubBloque {
   id          Int                 @id @default(autoincrement())
-  horaInicio  DateTime? 
+  horaInicio  DateTime?            // La fecha y hora de inicio del sub-bloque
   duracion    Int
-  nombre        String 
+  nombre      String 
   comentarios String? 
-  bloqueId    Int 
-  bloque      PlanificacionBloque @relation(fields: [bloqueId], references: [id], onDelete: Cascade)
+  color       String?
+  plantillaId Int?                // Relación con PlantillaSemanal, si este sub-bloque pertenece a una plantilla semanal
+  plantilla   PlantillaSemanal?   @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
+  bloqueId    Int?                // Relación opcional con PlanificacionBloque, si quieres seguir agrupándolos en bloques
+  bloque      PlanificacionBloque? @relation(fields: [bloqueId], references: [id], onDelete: Cascade)
   createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  updatedAt   DateTime            @default(now())
 }
 
 model PlantillaSemanal {
   id              Int                             @id @default(autoincrement())
-  nombre          String
+  identificador   String
   descripcion     String?
-  dias            DiaSemana[] // Relación con los días de la semana
+  subBloques      SubBloque[]                     // Relación directa con los sub-bloques o eventos específicos
   planificaciones PlanificacionMensualPlantilla[] // Relación con las planificaciones mensuales a través de la tabla intermedia
   createdAt       DateTime                        @default(now())
-  updatedAt       DateTime                        @updatedAt
+  updatedAt       DateTime                        @default(now())
 }
 
-model DiaSemana {
-  id          Int                   @id @default(autoincrement())
-  dia         String // Lunes, Martes, etc.
-  bloques     PlanificacionBloque[] // Relación con los bloques del día
-  plantillaId Int // Relación con la Plantilla Semanal
-  plantilla   PlantillaSemanal      @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-}
 
 model PlanificacionMensual {
   id           Int                             @id @default(autoincrement())
