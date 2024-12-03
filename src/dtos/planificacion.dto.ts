@@ -1,12 +1,24 @@
 import {
   IsArray,
+  IsBoolean,
   IsDate,
   IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  Min,
 } from 'class-validator';
+
+export class AsignarPlanificacionMensualDto {
+  @IsInt()
+  @Min(1)
+  planificacionId: number;
+
+  @IsArray()
+  @IsNotEmpty({ each: true })
+  alumnosIds: number[];
+}
 
 export class CreateBloqueDto {
   @IsString()
@@ -47,6 +59,10 @@ export class CreateOrUpdatePlantillaSemanalDto {
 }
 
 export class CreateSubBloqueDto {
+  @IsNumber()
+  @IsOptional()
+  id?: number;
+
   @IsDate()
   @IsNotEmpty({ message: 'La fecha y hora de inicio son requeridas.' })
   horaInicio: Date;
@@ -65,16 +81,28 @@ export class CreateSubBloqueDto {
 
   @IsString()
   @IsOptional()
+  comentariosAlumno?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  realizado?: boolean;
+
+  @IsString()
+  @IsOptional()
   color?: string;
 
   @IsNumber()
   @IsOptional()
   bloqueId?: number; // ID opcional del bloque al que pertenece el sub-bloque
 }
-export class CreatePlanificacionMensualDto {
+export class CreateOrUpdatePlanificacionMensualDto {
+  @IsOptional()
+  @IsInt({ message: 'El ID debe ser un número entero.' })
+  id?: number;
+
   @IsString()
-  @IsNotEmpty({ message: 'El nombre de la planificación es requerido.' })
-  nombre: string;
+  @IsNotEmpty({ message: 'El identificador de la planificación es requerido.' })
+  identificador: string;
 
   @IsString()
   @IsOptional()
@@ -89,12 +117,8 @@ export class CreatePlanificacionMensualDto {
   ano: number; // Año
 
   @IsArray()
-  @IsNotEmpty({ message: 'Las plantillas son requeridas.' })
-  plantillas: number[]; // Lista de IDs de plantillas semanales a usar en la planificación mensual
-
-  @IsArray()
-  @IsOptional()
-  bloquesAdicionales?: number[]; // Lista de IDs de bloques adicionales a asignar
+  @IsNotEmpty({ message: 'Los sub-bloques son requeridos.' })
+  subBloques: CreateSubBloqueDto[]; // Array de sub-bloques en lugar de días
 
   @IsArray()
   @IsOptional()

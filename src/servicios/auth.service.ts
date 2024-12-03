@@ -35,8 +35,18 @@ export class AuthService {
       rol: user.rol,
       comunidad: user.comunidad,
     };
+
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '60m', // Access token válido por 60 minutos
+    });
+
+    const refreshToken = this.jwtService.sign(payload, {
+      expiresIn: '7d', // Refresh token válido por 7 días
+    });
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: accessToken,
+      refresh_token: refreshToken,
     };
   }
 

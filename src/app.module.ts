@@ -24,6 +24,7 @@ import {
   FlashcardTestService,
 } from './servicios/flashcard.service';
 import {
+  PlanificacionMensualService,
   PlanificacionService,
   PlantillaSemanalService,
 } from './servicios/planification.service';
@@ -78,6 +79,7 @@ import { UsersService } from './servicios/user.service';
     FlashcardTestService,
     PlanificacionService,
     PlantillaSemanalService,
+    PlanificacionMensualService,
     EmailService,
   ],
 })

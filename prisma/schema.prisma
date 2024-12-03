@@ -228,12 +228,6 @@ model PlanificacionBloque {
   subBloques             SubBloque[] // Relación con SubBloques
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
-  PlanificacionMensual   PlanificacionMensual? @relation(fields: [planificacionMensualId], references: [id])
-  planificacionMensualId Int?
-
-  origenBloqueId         Int?                  // ID del bloque original, si es una copia
-  origenBloque           PlanificacionBloque?  @relation("OriginalToDuplicate", fields: [origenBloqueId], references: [id])
-  duplicados             PlanificacionBloque[] @relation("OriginalToDuplicate")
 }
 
 model SubBloque {
@@ -243,8 +237,12 @@ model SubBloque {
   nombre      String 
   comentarios String? 
   color       String?
+  realizado Boolean @default(false)
+  comentariosAlumno String? 
   plantillaId Int?                // Relación con PlantillaSemanal, si este sub-bloque pertenece a una plantilla semanal
   plantilla   PlantillaSemanal?   @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
+  planificacionId Int?               
+  planificacion   PlanificacionMensual?   @relation(fields: [planificacionId], references: [id], onDelete: Cascade)
   bloqueId    Int?                // Relación opcional con PlanificacionBloque, si quieres seguir agrupándolos en bloques
   bloque      PlanificacionBloque? @relation(fields: [bloqueId], references: [id], onDelete: Cascade)
   createdAt   DateTime            @default(now())
@@ -256,7 +254,6 @@ model PlantillaSemanal {
   identificador   String
   descripcion     String?
   subBloques      SubBloque[]                     // Relación directa con los sub-bloques o eventos específicos
-  planificaciones PlanificacionMensualPlantilla[] // Relación con las planificaciones mensuales a través de la tabla intermedia
   createdAt       DateTime                        @default(now())
   updatedAt       DateTime                        @default(now())
 }
@@ -264,26 +261,17 @@ model PlantillaSemanal {
 
 model PlanificacionMensual {
   id           Int                             @id @default(autoincrement())
-  nombre       String
+  identificador       String
   descripcion  String?
   mes          Int // Mes (1-12)
   ano          Int // Año
-  plantillas   PlanificacionMensualPlantilla[] // Relación con las plantillas semanales a través de la tabla intermedia
-  bloques      PlanificacionBloque[] // Bloques adicionales o personalizados para la planificación mensual
+  asignada Boolean @default(false)
+  subBloques   SubBloque[]                     // Relación directa con los sub-bloques o eventos específicos
   asignaciones AsignacionAlumno[] // Relación con las asignaciones de alumnos a través de la tabla intermedia
   createdAt    DateTime                        @default(now())
   updatedAt    DateTime                        @updatedAt
 }
 
-model PlanificacionMensualPlantilla {
-  plantillaId     Int
-  planificacionId Int
-
-  plantilla     PlantillaSemanal     @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
-  planificacion PlanificacionMensual @relation(fields: [planificacionId], references: [id], onDelete: Cascade)
-
-  @@id([plantillaId, planificacionId]) // Llave primaria compuesta para evitar duplicados
-}
 
 model AsignacionAlumno {
   alumnoId        Int

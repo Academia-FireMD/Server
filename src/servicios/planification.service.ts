@@ -1,18 +1,22 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { PlanificacionBloque } from '@prisma/client';
+import {
+  PlanificacionBloque,
+  PlanificacionMensual,
+  PlantillaSemanal,
+} from '@prisma/client';
+import { cloneDeep } from 'lodash';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   CreateBloqueDto,
+  CreateOrUpdatePlanificacionMensualDto,
   CreateOrUpdatePlantillaSemanalDto,
-  CreatePlanificacionMensualDto,
   UpdateBloqueDto,
 } from 'src/dtos/planificacion.dto';
 import * as XLSX from 'xlsx';
 import { PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
-
 @Injectable()
-export class PlantillaSemanalService extends PaginatedService<PlantillaSemanalService> {
+export class PlantillaSemanalService extends PaginatedService<PlantillaSemanal> {
   constructor(protected prisma: PrismaService) {
     super(prisma);
   }
@@ -22,10 +26,21 @@ export class PlantillaSemanalService extends PaginatedService<PlantillaSemanalSe
 }
 
 @Injectable()
+export class PlanificacionMensualService extends PaginatedService<PlanificacionMensual> {
+  constructor(protected prisma: PrismaService) {
+    super(prisma);
+  }
+  protected getModelName(): string {
+    return 'planificacionMensual';
+  }
+}
+
+@Injectable()
 export class PlanificacionService extends PaginatedService<PlanificacionBloque> {
   constructor(
     protected prisma: PrismaService,
     private plantillaSemanal: PlantillaSemanalService,
+    private planificacionMensual: PlanificacionMensualService,
   ) {
     super(prisma);
   }
@@ -65,11 +80,31 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     });
   }
 
-  public deletePlanificacionMensual(planificacionMensualId: string) {
-    return this.prisma.planificacionMensual.delete({
-      where: {
-        id: Number(planificacionMensualId),
-      },
+  public async deletePlanificacionMensual(planificacionMensualId: number) {
+    return await this.prisma.$transaction(async (prisma) => {
+      const foundPLanificacionMensual =
+        await prisma.planificacionMensual.findFirst({
+          where: {
+            id: Number(planificacionMensualId),
+          },
+          include: {
+            subBloques: true,
+          },
+        });
+      if (!foundPLanificacionMensual)
+        throw new BadRequestException('Esta planificación mensual no existe!');
+      await prisma.subBloque.deleteMany({
+        where: {
+          id: {
+            in: foundPLanificacionMensual.subBloques.map((e) => e.id),
+          },
+        },
+      });
+      await prisma.planificacionMensual.delete({
+        where: {
+          id: foundPLanificacionMensual.id,
+        },
+      });
     });
   }
 
@@ -170,6 +205,18 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     });
   }
 
+  public getPlanificacionMensual(planificacionMensualId: string) {
+    return this.prisma.planificacionMensual.findFirst({
+      where: {
+        id: Number(planificacionMensualId),
+      },
+      include: {
+        subBloques: true,
+        asignaciones: true,
+      },
+    });
+  }
+
   // Crear un nuevo bloque
   public createBloque(dto: CreateBloqueDto) {
     return this.prisma.planificacionBloque.create({
@@ -264,39 +311,211 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
 
   // Obtener todas las planificaciones mensuales con paginación
   public getAllPlanificacionesMensuales(dto: PaginationDto) {
-    return this.getPaginatedData(
+    return this.planificacionMensual.getPaginatedData(dto, {
+      identificador: {
+        contains: dto.searchTerm ?? '',
+        mode: 'insensitive',
+      },
+      asignada: false,
+    });
+  }
+
+  public getAllPlanificacionesMensualesAlumno(
+    dto: PaginationDto,
+    idAlumno: number,
+  ) {
+    return this.planificacionMensual.getPaginatedData(
       dto,
       {
         identificador: {
           contains: dto.searchTerm ?? '',
           mode: 'insensitive',
         },
+        asignaciones: {
+          some: {
+            alumnoId: idAlumno,
+          },
+        },
       },
-      { include: { plantillas: true, bloques: true } },
+      {
+        asignaciones: true,
+      },
     );
   }
 
-  // Crear una nueva planificación mensual y asignarla a alumnos
-  // Crear una nueva planificación mensual y asignarla a alumnos
-  public createPlanificacionMensual(dto: CreatePlanificacionMensualDto) {
-    return this.prisma.planificacionMensual.create({
-      data: {
-        nombre: dto.nombre,
-        descripcion: dto.descripcion,
-        mes: dto.mes,
-        ano: dto.ano,
-        plantillas: {
-          create: dto.plantillas.map((plantillaId) => ({ plantillaId })),
-        },
-        bloques: {
-          connect: dto.bloquesAdicionales?.map((bloqueId) => ({
-            id: bloqueId,
-          })),
-        },
-        asignaciones: {
-          create: dto.alumnosAsignados?.map((alumnoId) => ({ alumnoId })),
-        },
-      },
+  public async createOrUpdatePlanificacionMensual(
+    dto: CreateOrUpdatePlanificacionMensualDto,
+  ) {
+    const res = await this.prisma.$transaction(async (prisma) => {
+      if (dto.id) {
+        // Planificación existente: Actualizar
+        const planificacionExistente =
+          await prisma.planificacionMensual.findUnique({
+            where: { id: dto.id },
+            include: { subBloques: true },
+          });
+
+        if (!planificacionExistente) {
+          throw new Error(`Planificación con id ${dto.id} no encontrada.`);
+        }
+
+        // Eliminar sub-bloques no incluidos en el DTO
+        const subBloquesIds = dto.subBloques
+          .map((sb) => sb.id)
+          .filter((id) => id);
+        await prisma.subBloque.deleteMany({
+          where: {
+            planificacionId: dto.id,
+            id: { notIn: subBloquesIds },
+          },
+        });
+
+        // Actualizar o crear sub-bloques
+        for (const subBloque of dto.subBloques) {
+          if (subBloque.id) {
+            // Actualizar sub-bloque existente
+            await prisma.subBloque.update({
+              where: { id: subBloque.id },
+              data: {
+                horaInicio: subBloque.horaInicio,
+                duracion: subBloque.duracion,
+                nombre: subBloque.nombre,
+                comentarios: subBloque.comentarios,
+                color: subBloque.color,
+                comentariosAlumno: subBloque.comentariosAlumno ?? null,
+                realizado: subBloque.realizado ?? false,
+              },
+            });
+          } else {
+            // Crear nuevo sub-bloque
+            await prisma.subBloque.create({
+              data: {
+                horaInicio: subBloque.horaInicio,
+                duracion: subBloque.duracion,
+                nombre: subBloque.nombre,
+                comentarios: subBloque.comentarios,
+                color: subBloque.color,
+                planificacionId: dto.id,
+                comentariosAlumno: subBloque.comentariosAlumno ?? null,
+                realizado: subBloque.realizado ?? false,
+              },
+            });
+          }
+        }
+
+        // Actualizar la planificación
+        const updatedPlanificacion = await prisma.planificacionMensual.update({
+          where: { id: dto.id },
+          data: {
+            identificador: dto.identificador,
+            descripcion: dto.descripcion,
+            ano: dto.ano,
+            mes: dto.mes,
+          },
+        });
+
+        return updatedPlanificacion;
+      } else {
+        // Planificación nueva: Crear
+        const nuevaPlanificacion = await prisma.planificacionMensual.create({
+          data: {
+            identificador: dto.identificador,
+            descripcion: dto.descripcion,
+            ano: dto.ano,
+            mes: dto.mes,
+            subBloques: {
+              create: dto.subBloques.map((sb) => ({
+                horaInicio: sb.horaInicio,
+                duracion: sb.duracion,
+                nombre: sb.nombre,
+                comentarios: sb.comentarios,
+                color: sb.color,
+              })),
+            },
+          },
+        });
+
+        return nuevaPlanificacion;
+      }
+    });
+
+    return res;
+  }
+
+  public async asignarPlanificacionMensual(
+    planificacionId: number,
+    alumnosIds: number[],
+  ): Promise<any> {
+    return await this.prisma.$transaction(async (prisma) => {
+      // Verifica si la planificación existe
+      const planificacionOriginal =
+        await prisma.planificacionMensual.findUnique({
+          where: { id: planificacionId },
+          include: { subBloques: true }, // Incluye los sub-bloques relacionados
+        });
+
+      if (!planificacionOriginal) {
+        throw new BadRequestException('La planificación mensual no existe.');
+      }
+
+      if (alumnosIds.length == 0) {
+        throw new BadRequestException('Debes seleccionar alumnos!');
+      }
+
+      // Procesa la asignación para cada alumno
+      const nuevasPlanificaciones = await Promise.all(
+        alumnosIds.map(async (alumnoId) => {
+          let subBloquesClonados = [];
+          if (planificacionOriginal.subBloques.length > 0) {
+            subBloquesClonados = cloneDeep(planificacionOriginal.subBloques);
+            subBloquesClonados = subBloquesClonados.map((subBloque) => ({
+              horaInicio: subBloque.horaInicio,
+              duracion: subBloque.duracion,
+              nombre: subBloque.nombre,
+              comentarios: subBloque.comentarios,
+              color: subBloque.color,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }));
+          }
+          const nuevaPlanificacion = await prisma.planificacionMensual.create({
+            data: {
+              asignada: true,
+              identificador: `${planificacionOriginal.identificador}-alumno-${alumnoId}`,
+              descripcion: planificacionOriginal.descripcion,
+              mes: planificacionOriginal.mes,
+              ano: planificacionOriginal.ano,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              subBloques: {
+                create: subBloquesClonados,
+              },
+            },
+            include: {
+              asignaciones: true,
+            },
+          });
+
+          await prisma.asignacionAlumno.create({
+            data: {
+              alumnoId,
+              planificacionId: nuevaPlanificacion.id,
+            },
+          });
+
+          return nuevaPlanificacion;
+        }),
+      );
+
+      return {
+        message:
+          'Planificaciones personalizadas creadas y asignadas correctamente',
+        planificacionOriginal: planificacionId,
+        nuevasPlanificaciones: nuevasPlanificaciones.map((planificacion) => ({
+          id: planificacion.id,
+          alumnoId: planificacion.asignaciones[0]?.alumnoId || null,
+        })),
+      };
     });
   }
 }

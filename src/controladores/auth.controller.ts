@@ -5,6 +5,7 @@ import {
   Post,
   UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { validate } from 'class-validator';
 import { LoginDto } from 'src/dtos/login.dto';
 import { RegisterDto } from 'src/dtos/register.dto';
@@ -15,6 +16,7 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private usersService: UsersService,
+    private jwtService: JwtService,
   ) {}
 
   @Post('register')
@@ -61,5 +63,28 @@ export class AuthController {
     @Body('newPassword') newPassword: string,
   ) {
     return this.authService.resetPassword(token, newPassword);
+  }
+
+  @Post('refresh')
+  async refresh(@Body('refresh_token') refreshToken: string) {
+    try {
+      // Verifica el refresh token
+      const payload = this.jwtService.verify(refreshToken);
+
+      // Si el refresh token es válido, genera un nuevo access token
+      const newAccessToken = this.jwtService.sign(
+        {
+          email: payload.email,
+          sub: payload.sub,
+          rol: payload.rol,
+          comunidad: payload.comunidad,
+        },
+        { expiresIn: '60m' }, // Nueva duración del access token
+      );
+
+      return { access_token: newAccessToken };
+    } catch (error) {
+      throw new UnauthorizedException('Refresh token inválido o expirado');
+    }
   }
 }

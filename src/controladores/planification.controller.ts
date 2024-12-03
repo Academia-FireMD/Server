@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Request,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -15,9 +16,10 @@ import { Roles, RolesGuard } from 'src/guards/roles.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
+  AsignarPlanificacionMensualDto,
   CreateBloqueDto,
+  CreateOrUpdatePlanificacionMensualDto,
   CreateOrUpdatePlantillaSemanalDto,
-  CreatePlanificacionMensualDto,
   UpdateBloqueDto,
 } from 'src/dtos/planificacion.dto';
 import { PlanificacionService } from 'src/servicios/planification.service';
@@ -44,6 +46,25 @@ export class PlanificacionController {
   @Delete('/plantilla-semanal/:id')
   async deletePlantillaSemanal(@Param('id') id: string) {
     return this.service.deletePlantillaSemanal(Number(id));
+  }
+
+  @Roles(Rol.ADMIN)
+  @Delete('/planificacion-mensual/:id')
+  async deletePlanificacionMensual(@Param('id') id: string) {
+    return this.service.deletePlanificacionMensual(Number(id));
+  }
+
+  @Roles(Rol.ADMIN)
+  @Post('/asignar-planificacion-mensual')
+  async asignarPlanificacionMensual(
+    @Body()
+    dto: AsignarPlanificacionMensualDto,
+  ) {
+    const { planificacionId, alumnosIds } = dto;
+    return this.service.asignarPlanificacionMensual(
+      planificacionId,
+      alumnosIds,
+    );
   }
 
   @Roles(Rol.ADMIN)
@@ -85,6 +106,12 @@ export class PlanificacionController {
     return this.service.getPlantillaSemanal(id);
   }
 
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Get('/planificaciones-mensuales/:id')
+  async getPlanificacionMensual(@Param('id') id: string) {
+    return this.service.getPlanificacionMensual(id);
+  }
+
   // Visualizar planificaciones mensuales en una rejilla
   @Roles(Rol.ADMIN)
   @Post('/planificaciones-mensuales')
@@ -92,10 +119,21 @@ export class PlanificacionController {
     return this.service.getAllPlanificacionesMensuales(body);
   }
 
+  @Roles(Rol.ALUMNO)
+  @Post('/planificaciones-mensuales-alumno')
+  async getAllPlanificacionesMensualesAlumno(
+    @Body() body: PaginationDto,
+    @Request() req,
+  ) {
+    const { id } = req.user;
+    return this.service.getAllPlanificacionesMensualesAlumno(body, Number(id));
+  }
   // Crear una nueva planificacion mensual y asignarla a alumnos
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
   @Post('/planificacion-mensual')
-  async createPlanificacionMensual(@Body() dto: CreatePlanificacionMensualDto) {
-    return this.service.createPlanificacionMensual(dto);
+  async createPlanificacionMensual(
+    @Body() dto: CreateOrUpdatePlanificacionMensualDto,
+  ) {
+    return this.service.createOrUpdatePlanificacionMensual(dto);
   }
 }
