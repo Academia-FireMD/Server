@@ -595,6 +595,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
           throw new Error(`Planificación con id ${dto.id} no encontrada.`);
         }
 
+        
         // Eliminar sub-bloques no incluidos en el DTO
         const subBloquesIds = dto.subBloques
           .map((sb) => sb.id)
