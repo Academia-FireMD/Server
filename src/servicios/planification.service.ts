@@ -3,8 +3,11 @@ import {
   PlanificacionBloque,
   PlanificacionMensual,
   PlantillaSemanal,
+  SubBloque,
+  TipoDePlanificacionDeseada,
 } from '@prisma/client';
 import { cloneDeep } from 'lodash';
+import { firstValueFrom, forkJoin } from 'rxjs';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   CreateBloqueDto,
@@ -36,11 +39,22 @@ export class PlanificacionMensualService extends PaginatedService<PlanificacionM
 }
 
 @Injectable()
+export class SubBloqueService extends PaginatedService<SubBloque> {
+  constructor(protected prisma: PrismaService) {
+    super(prisma);
+  }
+  protected getModelName(): string {
+    return 'subBloque';
+  }
+}
+
+@Injectable()
 export class PlanificacionService extends PaginatedService<PlanificacionBloque> {
   constructor(
     protected prisma: PrismaService,
     private plantillaSemanal: PlantillaSemanalService,
     private planificacionMensual: PlanificacionMensualService,
+    private subbloqueService: SubBloqueService,
   ) {
     super(prisma);
   }
@@ -80,15 +94,158 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     });
   }
 
-  public async deletePlanificacionMensual(planificacionMensualId: number) {
+  public async getCountPlanificacionesAsignadasAlumno(infoEjecutor: {
+    role: 'ADMIN' | 'ALUMNO';
+    id: number;
+  }) {
+    return this.prisma.planificacionMensual.count({
+      where: {
+        asignacion: {
+          alumnoId: infoEjecutor.id,
+        },
+      },
+    });
+  }
+
+  public async assignDefaultPlanificationToAllAlumnos() {
+    const alumnosSinPlanificacion = await this.prisma.usuario.findMany({
+      where: {
+        rol: 'ALUMNO',
+        asignaciones: {
+          none: {},
+        },
+      },
+    });
+
+    if (!alumnosSinPlanificacion || alumnosSinPlanificacion.length === 0) {
+      console.log('No hay alumnos sin planificación asignada.');
+      throw new BadRequestException(
+        'No hay alumnos sin planificación asignada.',
+      );
+    }
+
+    // Obtener todas las planificaciones mensuales por defecto disponibles
+    const planificacionesPorDefecto = await firstValueFrom(
+      forkJoin(
+        Object.values(TipoDePlanificacionDeseada).map((tipo) => {
+          return this.prisma.planificacionMensual.findFirst({
+            where: {
+              esPorDefecto: true,
+              tipoDePlanificacion: tipo,
+              asignada: false,
+            },
+          });
+        }),
+      ),
+    );
+
+    // Crear un mapa con las planificaciones disponibles por tipo
+    const planificacionesMap = Object.values(TipoDePlanificacionDeseada).reduce(
+      (map, tipo, index) => {
+        map[tipo] = planificacionesPorDefecto[index] || null;
+        return map;
+      },
+      {} as Record<TipoDePlanificacionDeseada, any>,
+    );
+
+    // Asignar la planificación a cada alumno basado en sus preferencias
+    const resultados = [];
+    for (const alumno of alumnosSinPlanificacion) {
+      const tipoPreferido = alumno.tipoDePlanificacionDuracionDeseada;
+      if (!tipoPreferido) {
+        console.log(
+          `El alumno con ID ${alumno.id} no tiene preferencia de planificación.`,
+        );
+        continue;
+      }
+
+      const planificacion = planificacionesMap[tipoPreferido];
+      if (!planificacion) {
+        console.log(
+          `No se encontró planificación por defecto para el tipo ${tipoPreferido} (Alumno ID: ${alumno.id}).`,
+        );
+        continue;
+      }
+
+      // Asignar la planificación al alumno
+      try {
+        await this.asignarPlanificacionMensual(planificacion.id, [alumno.id]);
+        resultados.push({
+          alumnoId: alumno.id,
+          planificacionId: planificacion.id,
+          estado: 'asignado',
+        });
+      } catch (error) {
+        console.error(
+          `Error asignando planificación al alumno con ID ${alumno.id}:`,
+          error,
+        );
+        resultados.push({
+          alumnoId: alumno.id,
+          planificacionId: planificacion.id,
+          estado: 'error',
+        });
+      }
+    }
+
+    return resultados;
+  }
+
+  public async assignDefaultPlanificationToSpecificAlumno(
+    userId: number,
+    tipoDePlanificacion: TipoDePlanificacionDeseada,
+  ) {
+    //do the same as above but with specific id
+    const foundUser = await this.prisma.usuario.findFirst({
+      where: {
+        id: userId,
+      },
+    });
+    if (!foundUser) throw new BadRequestException('Usuario no existe!');
+    if (!foundUser.tipoDePlanificacionDuracionDeseada)
+      throw new BadRequestException(
+        'El usuario no tiene un tipo de planificación seleccionada!',
+      );
+    const foundFirstDefaultPlanificacionMensualWithSpecificTimeframe =
+      await this.prisma.planificacionMensual.findFirst({
+        where: {
+          asignada: false,
+          tipoDePlanificacion:
+            tipoDePlanificacion ?? foundUser.tipoDePlanificacionDuracionDeseada,
+          esPorDefecto: true,
+        },
+      });
+    if (!foundFirstDefaultPlanificacionMensualWithSpecificTimeframe)
+      throw new BadRequestException(
+        'No se encontró una planificación mensual por defecto con ese tipo de planificación!',
+      );
+    const res = await this.asignarPlanificacionMensual(
+      foundFirstDefaultPlanificacionMensualWithSpecificTimeframe.id,
+      [foundUser.id],
+    );
+    return res;
+  }
+
+  public async deletePlanificacionMensual(
+    planificacionMensualId: number,
+    infoEjecutor: { role: 'ADMIN' | 'ALUMNO'; id: number },
+  ) {
     return await this.prisma.$transaction(async (prisma) => {
+      const whereAlumno = {
+        id: Number(planificacionMensualId),
+        asignacion: {
+          alumnoId: infoEjecutor.id,
+        },
+      };
+      const whereAdmin = {
+        id: Number(planificacionMensualId),
+      };
       const foundPLanificacionMensual =
         await prisma.planificacionMensual.findFirst({
-          where: {
-            id: Number(planificacionMensualId),
-          },
+          where: infoEjecutor.role == 'ADMIN' ? whereAdmin : whereAlumno,
           include: {
             subBloques: true,
+            asignacion: true,
           },
         });
       if (!foundPLanificacionMensual)
@@ -212,7 +369,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
       },
       include: {
         subBloques: true,
-        asignaciones: true,
+        asignacion: true,
       },
     });
   }
@@ -311,13 +468,94 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
 
   // Obtener todas las planificaciones mensuales con paginación
   public getAllPlanificacionesMensuales(dto: PaginationDto) {
-    return this.planificacionMensual.getPaginatedData(dto, {
-      identificador: {
-        contains: dto.searchTerm ?? '',
-        mode: 'insensitive',
+    return this.planificacionMensual.getPaginatedData(
+      dto,
+      {
+        ...(dto.where ?? {}),
+        ...{
+          OR: [
+            {
+              identificador: {
+                contains: dto.searchTerm ?? '',
+                mode: 'insensitive',
+              },
+            },
+            {
+              asignacion: {
+                alumno: {
+                  OR: [
+                    {
+                      email: {
+                        contains: dto.searchTerm ?? '',
+                        mode: 'insensitive',
+                      },
+                    },
+                    {
+                      nombre: {
+                        contains: dto.searchTerm ?? '',
+                        mode: 'insensitive',
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
       },
-      asignada: false,
-    });
+      {
+        asignacion: {
+          include: {
+            alumno: true,
+          },
+        },
+      },
+    );
+  }
+
+  public getAllComentariosAlumnos(dto: PaginationDto) {
+    return this.subbloqueService.getPaginatedData(
+      dto,
+      {
+        AND: [
+          { comentariosAlumno: { not: '' } }, // No vacío
+          { comentariosAlumno: { not: null } }, // No nulo
+          {
+            planificacion: {
+              asignacion: {
+                alumno: {
+                  OR: [
+                    {
+                      email: {
+                        contains: dto.searchTerm ?? '',
+                        mode: 'insensitive',
+                      },
+                    },
+                    {
+                      nombre: {
+                        contains: dto.searchTerm ?? '',
+                        mode: 'insensitive',
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
+      {
+        planificacion: {
+          include: {
+            asignacion: {
+              include: {
+                alumno: true,
+              },
+            },
+          },
+        },
+      },
+    );
   }
 
   public getAllPlanificacionesMensualesAlumno(
@@ -331,14 +569,12 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
           contains: dto.searchTerm ?? '',
           mode: 'insensitive',
         },
-        asignaciones: {
-          some: {
-            alumnoId: idAlumno,
-          },
+        asignacion: {
+          alumnoId: idAlumno,
         },
       },
       {
-        asignaciones: true,
+        asignacion: true,
       },
     );
   }
@@ -411,6 +647,13 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
             descripcion: dto.descripcion,
             ano: dto.ano,
             mes: dto.mes,
+            relevancia: dto.relevancia ?? [],
+            esPorDefecto: dto.esPorDefecto ?? false,
+            tipoDePlanificacion:
+              dto.tipoDePlanificacion ?? TipoDePlanificacionDeseada.SEIS_HORAS,
+          },
+          include: {
+            subBloques: true,
           },
         });
 
@@ -423,6 +666,10 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
             descripcion: dto.descripcion,
             ano: dto.ano,
             mes: dto.mes,
+            relevancia: dto.relevancia ?? [],
+            esPorDefecto: dto.esPorDefecto ?? false,
+            tipoDePlanificacion:
+              dto.tipoDePlanificacion ?? TipoDePlanificacionDeseada.SEIS_HORAS,
             subBloques: {
               create: dto.subBloques.map((sb) => ({
                 horaInicio: sb.horaInicio,
@@ -434,7 +681,6 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
             },
           },
         });
-
         return nuevaPlanificacion;
       }
     });
@@ -481,7 +727,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
           const nuevaPlanificacion = await prisma.planificacionMensual.create({
             data: {
               asignada: true,
-              identificador: `${planificacionOriginal.identificador}-alumno-${alumnoId}`,
+              identificador: `${planificacionOriginal.identificador}-ALUMNO-${alumnoId}`,
               descripcion: planificacionOriginal.descripcion,
               mes: planificacionOriginal.mes,
               ano: planificacionOriginal.ano,
@@ -492,7 +738,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
               },
             },
             include: {
-              asignaciones: true,
+              asignacion: true,
             },
           });
 
@@ -513,7 +759,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
         planificacionOriginal: planificacionId,
         nuevasPlanificaciones: nuevasPlanificaciones.map((planificacion) => ({
           id: planificacion.id,
-          alumnoId: planificacion.asignaciones[0]?.alumnoId || null,
+          alumnoId: planificacion.asignacion?.alumnoId || null,
         })),
       };
     });

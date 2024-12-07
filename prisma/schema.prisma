@@ -16,6 +16,12 @@ enum Comunidad {
   MURCIA
 }
 
+enum TipoDePlanificacionDeseada {
+  CUATRO_HORAS
+  SEIS_HORAS
+  OCHO_HORAS
+}
+
 enum Dificultad {
   BASICO
   INTERMEDIO
@@ -182,6 +188,7 @@ model Usuario {
   Feedback       Feedback[]
   ReporteFallo   ReporteFallo[]
   esTutor        Boolean         @default(false)
+  tipoDePlanificacionDuracionDeseada TipoDePlanificacionDeseada @default(SEIS_HORAS)
   resetPasswordToken  String?
   resetPasswordExpires DateTime?
 
@@ -266,8 +273,11 @@ model PlanificacionMensual {
   mes          Int // Mes (1-12)
   ano          Int // Año
   asignada Boolean @default(false)
+  esPorDefecto Boolean @default(false)
+  relevancia Comunidad[]
+  tipoDePlanificacion TipoDePlanificacionDeseada @default(SEIS_HORAS)
   subBloques   SubBloque[]                     // Relación directa con los sub-bloques o eventos específicos
-  asignaciones AsignacionAlumno[] // Relación con las asignaciones de alumnos a través de la tabla intermedia
+  asignacion   AsignacionAlumno? 
   createdAt    DateTime                        @default(now())
   updatedAt    DateTime                        @updatedAt
 }
@@ -275,7 +285,7 @@ model PlanificacionMensual {
 
 model AsignacionAlumno {
   alumnoId        Int
-  planificacionId Int
+  planificacionId Int @unique
 
   alumno        Usuario              @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
   planificacion PlanificacionMensual @relation(fields: [planificacionId], references: [id], onDelete: Cascade)

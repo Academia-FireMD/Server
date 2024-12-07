@@ -27,6 +27,7 @@ import {
   PlanificacionMensualService,
   PlanificacionService,
   PlantillaSemanalService,
+  SubBloqueService,
 } from './servicios/planification.service';
 import { PreguntasService } from './servicios/preguntas.service';
 import { PrismaService } from './servicios/prisma.service';
@@ -80,6 +81,7 @@ import { UsersService } from './servicios/user.service';
     PlanificacionService,
     PlantillaSemanalService,
     PlanificacionMensualService,
+    SubBloqueService,
     EmailService,
   ],
 })

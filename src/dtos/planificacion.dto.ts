@@ -1,7 +1,9 @@
+import { Comunidad, TipoDePlanificacionDeseada } from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
   IsDate,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -107,6 +109,26 @@ export class CreateOrUpdatePlanificacionMensualDto {
   @IsString()
   @IsOptional()
   descripcion?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  esPorDefecto?: boolean;
+
+  @IsOptional()
+  @IsEnum(TipoDePlanificacionDeseada, {
+    each: true,
+    message: 'Tipo de planificación debe de ser un valor valido.',
+  })
+  tipoDePlanificacion?: TipoDePlanificacionDeseada;
+
+  @IsOptional()
+  @IsArray({ message: 'Relevancia debe ser un array.' })
+  @IsEnum(Comunidad, {
+    each: true,
+    message:
+      'Cada relevancia debe ser un valor válido de la enumeración Comunidad.',
+  })
+  relevancia?: Comunidad[];
 
   @IsInt()
   @IsNotEmpty({ message: 'El mes es requerido y debe ser un número entero.' })

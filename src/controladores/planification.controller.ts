@@ -10,7 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { Rol } from '@prisma/client';
+import { Rol, TipoDePlanificacionDeseada } from '@prisma/client';
 import { Roles, RolesGuard } from 'src/guards/roles.guard';
 
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -48,10 +48,34 @@ export class PlanificacionController {
     return this.service.deletePlantillaSemanal(Number(id));
   }
 
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
   @Delete('/planificacion-mensual/:id')
-  async deletePlanificacionMensual(@Param('id') id: string) {
-    return this.service.deletePlanificacionMensual(Number(id));
+  async deletePlanificacionMensual(@Param('id') id: string, @Request() req) {
+    return this.service.deletePlanificacionMensual(Number(id), req.user);
+  }
+
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Get('/count-planificationes-asignadas')
+  async getBlgetCountPlanificacionesAsignadasAlumnooque(@Request() req) {
+    return this.service.getCountPlanificacionesAsignadasAlumno(req.user);
+  }
+
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Post('/auto-assign-planificacion-mensual')
+  async autoAssignPlanificacionMensual(
+    @Body() dto: { tipoDePlanificacion: TipoDePlanificacionDeseada },
+    @Request() req,
+  ) {
+    return this.service.assignDefaultPlanificationToSpecificAlumno(
+      req.user.id,
+      dto.tipoDePlanificacion,
+    );
+  }
+
+  @Roles(Rol.ADMIN)
+  @Post('/auto-assign-planificacion-mensual-all')
+  async autoAssignPlanificacionMensualAll() {
+    return this.service.assignDefaultPlanificationToAllAlumnos();
   }
 
   @Roles(Rol.ADMIN)
@@ -117,6 +141,12 @@ export class PlanificacionController {
   @Post('/planificaciones-mensuales')
   async getAllPlanificacionesMensuales(@Body() body: PaginationDto) {
     return this.service.getAllPlanificacionesMensuales(body);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Post('/comentarios-alumnos-planificacion')
+  async comentariosPlanificacionAlumnos(@Body() body: PaginationDto) {
+    return this.service.getAllComentariosAlumnos(body);
   }
 
   @Roles(Rol.ALUMNO)
