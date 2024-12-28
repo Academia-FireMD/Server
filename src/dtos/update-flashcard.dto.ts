@@ -1,18 +1,16 @@
 import { Comunidad, Dificultad } from '@prisma/client';
 import {
-    ArrayMinSize,
-    IsArray,
-    IsEnum,
-    IsInt,
-    IsNotEmpty,
-    IsOptional,
-    IsString,
+  ArrayMinSize,
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
 } from 'class-validator';
 
 export class CreateFlashcardDataDto {
   @IsOptional()
-  @IsString({ message: 'El identificador debe ser una cadena de texto.' })
-  @IsNotEmpty({ message: 'El identificador no puede estar vacío.' })
   identificador?: string;
 
   @IsOptional()

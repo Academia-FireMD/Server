@@ -19,7 +19,13 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // Elimina propiedades no definidas en el DTO
+      forbidNonWhitelisted: true, // Lanza error si hay propiedades no definidas
+      transform: true, // Transforma los datos al tipo esperado
+    }),
+  );
   await app.listen(process.env.PORT || 3000);
 }
 bootstrap();

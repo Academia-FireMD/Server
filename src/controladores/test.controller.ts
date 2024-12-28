@@ -28,14 +28,14 @@ export class TestController {
 
   @Roles(Rol.ALUMNO)
   @Post('/tests-alumno')
-  async getAllPreguntas(@Body() body: PaginationDto, @Request() req) {
+  async getAllTestsAlumno(@Body() body: PaginationDto, @Request() req) {
     const { id } = req.user;
     return this.service.getAllTestsAlumno(body, id);
   }
 
   @Roles(Rol.ADMIN)
   @Post('/tests-admin')
-  async getAllPreguntasAdmin(@Body() body: PaginationDto) {
+  async getAllTestsAdmin(@Body() body: PaginationDto) {
     return this.service.getAllTestsAdmin(body);
   }
 

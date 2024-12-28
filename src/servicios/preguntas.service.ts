@@ -47,7 +47,32 @@ export class PreguntasService extends PaginatedService<Pregunta> {
     );
   }
 
-  public updatePregunta(dto: UpdatePreguntaDto | CreatePreguntaDto) {
+  public getAllPreguntasAlumno(dto: PaginationDto, userId: number) {
+    return this.getPaginatedData(
+      dto,
+      {
+        identificador: {
+          contains: dto.searchTerm ?? '',
+          mode: 'insensitive',
+        },
+        createdById: userId,
+      },
+      { tema: true },
+    );
+  }
+
+  public updatePregunta(
+    dto: UpdatePreguntaDto | CreatePreguntaDto,
+    userId: number,
+  ) {
+    if (!dto.identificador)
+      throw new BadRequestException('El identificador no puede ser nulo');
+    if (!dto.dificultad)
+      throw new BadRequestException('La dificultad no puede ser nula!');
+    if (!dto.temaId)
+      throw new BadRequestException('El tema no puede ser nulo!');
+    if (!dto.descripcion)
+      throw new BadRequestException('La descripción es requerida!');
     if ('id' in dto) {
       return this.prisma.pregunta.update({
         where: {
@@ -60,6 +85,11 @@ export class PreguntasService extends PaginatedService<Pregunta> {
           tema: {
             connect: {
               id: dto.temaId,
+            },
+          },
+          updatedBy: {
+            connect: {
+              id: userId,
             },
           },
           descripcion: dto.descripcion,
@@ -80,6 +110,16 @@ export class PreguntasService extends PaginatedService<Pregunta> {
               id: dto.temaId,
             },
           },
+          createdBy: {
+            connect: {
+              id: userId,
+            },
+          },
+          updatedBy: {
+            connect: {
+              id: userId,
+            },
+          },
           descripcion: dto.descripcion,
           solucion: dto.solucion ?? '',
           respuestas: dto.respuestas,
@@ -90,7 +130,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
     }
   }
 
-  public async importarExcel(file: Express.Multer.File) {
+  public async importarExcel(file: Express.Multer.File, userId: number) {
     const workbook = XLSX.read(file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0]; // Asume que los datos están en la primera hoja
     const sheet = workbook.Sheets[sheetName];
@@ -148,6 +188,12 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         case 'dificil':
           dificultadEnum = Dificultad.DIFICIL;
           break;
+        case 'privadas':
+          dificultadEnum = Dificultad.PRIVADAS;
+          break;
+        case 'publicas':
+          dificultadEnum = Dificultad.PUBLICAS;
+          break;
         default:
           throw new BadRequestException(
             `Dificultad desconocida: ${entry['Dificultad']}`,
@@ -168,6 +214,8 @@ export class PreguntasService extends PaginatedService<Pregunta> {
           temaId: temaExistente.id,
           dificultad: dificultadEnum,
           relevancia: relevanciaArray,
+          createdById: userId,
+          updatedById: userId,
         },
       });
       insertados++;

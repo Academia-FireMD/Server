@@ -34,19 +34,25 @@ export class FlashcardDataController {
     private readonly serviceTest: FlashcardTestService,
   ) {}
 
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
   @UseInterceptors(FileInterceptor('file'))
   @Post('importar-excel')
-  async importarExcel(@UploadedFile() file: Express.Multer.File) {
-    return this.service.importarExcel(file);
+  async importarExcel(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req,
+  ) {
+    const { id } = req.user;
+    return this.service.importarExcel(file, id);
   }
 
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
   @Post('/update-flashcard')
   async updateFlashcard(
     @Body() body: UpdateFlashcardDataDto | CreateFlashcardDataDto,
+    @Request() req,
   ) {
-    return this.service.updateFlashcard(body);
+    const { id } = req.user;
+    return this.service.updateFlashcard(body, id);
   }
 
   @Roles(Rol.ALUMNO)
@@ -110,7 +116,7 @@ export class FlashcardDataController {
     return this.service.getTestById(Number(id));
   }
 
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
   @Delete('/:id')
   async deleteFlashcard(@Param('id') id: string) {
     return this.service.deleteFlashcard(id);
@@ -120,6 +126,13 @@ export class FlashcardDataController {
   @Post()
   async getAllFlashcards(@Body() body: PaginationDto) {
     return this.service.getAllFlashcards(body);
+  }
+
+  @Roles(Rol.ALUMNO)
+  @Post('/alumno')
+  async getAllFlashcardsAlumno(@Request() req, @Body() body: PaginationDto) {
+    const { id } = req.user;
+    return this.service.getAllFlashcardsAlumno(body, id);
   }
 
   @Roles(Rol.ALUMNO)
@@ -135,7 +148,7 @@ export class FlashcardDataController {
     return this.serviceTest.getAllFlashcardsTestsAdmin(body);
   }
 
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
   @Get('/:id')
   async getFlashcard(@Param('id') id: string) {
     return this.service.getFlashcard(id);

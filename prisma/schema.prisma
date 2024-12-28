@@ -26,6 +26,8 @@ enum Dificultad {
   BASICO
   INTERMEDIO
   DIFICIL
+  PRIVADAS
+  PUBLICAS
 }
 
 enum SeguridadAlResponder {
@@ -77,6 +79,10 @@ model Pregunta {
   Respuesta              Respuesta[]
   Feedback               Feedback[]
   ReporteFallo           ReporteFallo[]
+  createdBy              Usuario?               @relation("PreguntaCreatedBy", fields: [createdById], references: [id])
+  createdById            Int?
+  updatedBy              Usuario?              @relation("PreguntaUpdatedBy", fields: [updatedById], references: [id])
+  updatedById            Int?
 }
 
 model FlashcardTest {
@@ -125,6 +131,10 @@ model FlashcardData {
   ReporteFallo       ReporteFallo[]
   FlashcardTestItem  FlashcardTestItem[]
   FlashcardRespuesta FlashcardRespuesta[]
+  createdBy          Usuario?             @relation("FlashcardCreatedBy", fields: [createdById], references: [id])
+  createdById        Int?
+  updatedBy          Usuario?             @relation("FlashcardUpdatedBy", fields: [updatedById], references: [id])
+  updatedById        Int?
 }
 
 enum EstadoFlashcard {
@@ -199,6 +209,12 @@ model Usuario {
 
   // Relación con planificaciones mensuales a través de AsignacionAlumno
   asignaciones AsignacionAlumno[]
+  createdPreguntas Pregunta[] @relation("PreguntaCreatedBy")
+  updatedPreguntas Pregunta[] @relation("PreguntaUpdatedBy")
+
+  // Relación con FlashcardData
+  createdFlashcards FlashcardData[] @relation("FlashcardCreatedBy")
+  updatedFlashcards FlashcardData[] @relation("FlashcardUpdatedBy")
 }
 
 model Feedback {

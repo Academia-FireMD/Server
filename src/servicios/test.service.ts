@@ -667,6 +667,8 @@ export class TestService extends PaginatedService<Test> {
         preguntasDisponibles = await prisma.pregunta.findMany({
           where: {
             temaId: { in: dto.temas },
+            createdById:
+              dto.dificultad == Dificultad.PRIVADAS ? userId : undefined,
             relevancia: {
               has: userComunidad,
             },
@@ -727,12 +729,32 @@ export class TestService extends PaginatedService<Test> {
       this.obtenerDistribucionDificultad(dificultadSolicitada);
 
     const preguntasPorDificultad = {
-      DIFICIL: preguntas.filter((p) => p.dificultad === Dificultad.DIFICIL),
-      INTERMEDIO: preguntas.filter(
+      [Dificultad.DIFICIL]: preguntas.filter(
+        (p) => p.dificultad === Dificultad.DIFICIL,
+      ),
+      [Dificultad.INTERMEDIO]: preguntas.filter(
         (p) => p.dificultad === Dificultad.INTERMEDIO,
       ),
-      BASICO: preguntas.filter((p) => p.dificultad === Dificultad.BASICO),
+      [Dificultad.BASICO]: preguntas.filter(
+        (p) => p.dificultad === Dificultad.BASICO,
+      ),
+      [Dificultad.PRIVADAS]: preguntas.filter(
+        (p) => p.dificultad === Dificultad.PRIVADAS,
+      ),
+      [Dificultad.PUBLICAS]: preguntas.filter(
+        (p) => p.dificultad === Dificultad.PUBLICAS,
+      ),
     };
+
+    if (
+      dificultadSolicitada === Dificultad.PRIVADAS ||
+      dificultadSolicitada === Dificultad.PUBLICAS
+    ) {
+      return this.seleccionarPreguntasConShuffle(
+        preguntasPorDificultad[dificultadSolicitada],
+        numPreguntas,
+      );
+    }
 
     let seleccionadas: Pregunta[] = [];
 
@@ -777,6 +799,26 @@ export class TestService extends PaginatedService<Test> {
     }
 
     return seleccionadas.slice(0, numPreguntas);
+  }
+
+  private seleccionarPreguntasConShuffle(
+    preguntas: Pregunta[],
+    numPreguntas: number,
+  ): Pregunta[] {
+    const seleccionadas: Pregunta[] = [];
+    while (seleccionadas.length < numPreguntas) {
+      const duplicadas = [...preguntas];
+      this.shuffleArray(duplicadas);
+      seleccionadas.push(...duplicadas);
+    }
+    return seleccionadas.slice(0, numPreguntas);
+  }
+
+  private shuffleArray(array: Pregunta[]): void {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
   }
 
   private obtenerDistribucionDificultad(dificultad: Dificultad) {

@@ -11,10 +11,9 @@ import {
 } from 'class-validator';
 
 export class CreatePreguntaDto {
-  @IsOptional()
   @IsString({ message: 'El identificador debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'El identificador no puede estar vacío.' })
-  identificador?: string;
+  identificador: string;
 
   @IsOptional()
   @IsArray({ message: 'Relevancia debe ser un array.' })
@@ -28,12 +27,11 @@ export class CreatePreguntaDto {
   })
   relevancia?: Comunidad[];
 
-  @IsOptional()
   @IsEnum(Dificultad, {
     message:
       'La dificultad debe ser un valor válido de la enumeración Dificultad.',
   })
-  dificultad?: Dificultad;
+  dificultad: Dificultad;
 
   @IsOptional()
   @IsInt({ message: 'El id del tema debe ser un número entero.' })
@@ -79,7 +77,6 @@ export class CreatePreguntaDto {
 }
 
 export class UpdatePreguntaDto extends CreatePreguntaDto {
-  @IsOptional()
   @IsInt({ message: 'El ID debe ser un número entero.' })
-  id?: number;
+  id: number;
 }
