@@ -6,12 +6,14 @@ import {
   Param,
   Post,
   Request,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Rol } from '@prisma/client';
+import { Response } from 'express'; // Esto es válido incluso si estás usando Fastify
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   CreatePreguntaDto,
@@ -38,6 +40,12 @@ export class PreguntasController {
   @Post()
   async getAllPreguntas(@Body() body: PaginationDto) {
     return this.service.getAllPreguntas(body);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Post('/preguntas-creadas-por-alumnos')
+  async getAllPreguntasCreadosPorAlumnos(@Res() res: Response) {
+    return this.service.getAllPreguntasCreadasPorAlumnos(res);
   }
 
   @Roles(Rol.ALUMNO)

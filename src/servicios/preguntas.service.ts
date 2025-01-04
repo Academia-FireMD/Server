@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Comunidad, Dificultad, Pregunta } from '@prisma/client';
+import { Response } from 'express'; // Esto es válido incluso si estás usando Fastify
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   CreatePreguntaDto,
   UpdatePreguntaDto,
 } from 'src/dtos/update-pregunta.dto';
+import { generarIdentificador } from 'src/utils/utils';
 import * as XLSX from 'xlsx';
 import { PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
@@ -34,6 +36,36 @@ export class PreguntasService extends PaginatedService<Pregunta> {
     });
   }
 
+  public async getAllPreguntasCreadasPorAlumnos(res: Response) {
+    const preguntas = await this.prisma.pregunta.findMany({
+      where: {
+        createdBy: {
+          rol: 'ALUMNO',
+        },
+      },
+    });
+    // Genera la hoja de cálculo Excel
+    const worksheet = XLSX.utils.json_to_sheet(preguntas);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Flashcards');
+
+    // Escribe el archivo Excel en un buffer
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // Configura los headers para la descarga del archivo
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="flashcards.xlsx"',
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+
+    // Envía el archivo al cliente como binario
+    res.send(buffer);
+  }
+
   public getAllPreguntas(dto: PaginationDto) {
     return this.getPaginatedData(
       dto,
@@ -61,12 +93,24 @@ export class PreguntasService extends PaginatedService<Pregunta> {
     );
   }
 
-  public updatePregunta(
+  public async updatePregunta(
     dto: UpdatePreguntaDto | CreatePreguntaDto,
     userId: number,
   ) {
+    const user = await this.prisma.usuario.findFirst({
+      where: {
+        id: userId,
+      },
+    });
+    if (!user) throw new BadRequestException('Usuario no existe!');
+    //Auto generar identificador
     if (!dto.identificador)
-      throw new BadRequestException('El identificador no puede ser nulo');
+      dto.identificador = await generarIdentificador(
+        user.rol,
+        'PREGUNTA',
+        dto.temaId,
+        this.prisma,
+      );
     if (!dto.dificultad)
       throw new BadRequestException('La dificultad no puede ser nula!');
     if (!dto.temaId)

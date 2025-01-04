@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Response } from 'express'; // Esto es válido incluso si estás usando Fastify
+
 import {
   Comunidad,
   Dificultad,
@@ -369,28 +371,22 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       }
 
       flashcardsDisponibles = flashcardsMalYRevisar;
-
-      // Si hay menos flashcards que las solicitadas, repetir las que fueron MAL o REVISAR
-      // if (flashcardsDisponibles.length < numPreguntas) {
-      //   const faltantes = numPreguntas - flashcardsDisponibles.length;
-      //   for (let i = 0; i < faltantes; i++) {
-      //     const flashcardRepetida =
-      //       flashcardsDisponibles[i % flashcardsDisponibles.length]; // Repetir cíclicamente
-      //     flashcardsDisponibles.push(flashcardRepetida);
-      //   }
-      // }
     } else {
       // Para un test normal (no de repaso), selecciona las flashcards basadas en temas y dificultades
+      const dificultades = dto.dificultades;
+      const incluyePrivada = dificultades.includes(Dificultad.PRIVADAS);
+      const incluyePublica = dificultades.includes(Dificultad.PUBLICAS);
+      if (!!incluyePrivada && !incluyePublica) {
+        dificultades.push(Dificultad.PUBLICAS);
+      }
       const todasLasFlashcards = await this.prisma.flashcardData.findMany({
         where: {
           temaId: { in: dto.temas },
-          dificultad: { in: dto.dificultades },
+          dificultad: { in: dificultades },
           relevancia: {
             has: userComunidad,
           },
-          createdById: dto.dificultades.includes(Dificultad.PRIVADAS)
-            ? userId
-            : undefined,
+          createdById: incluyePrivada ? userId : undefined,
         },
         include: {
           FlashcardRespuesta: {
@@ -595,6 +591,37 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       },
       { tema: true },
     );
+  }
+
+  async getAllFlashcardsCreadasPorAlumnos(res: Response) {
+    const flashcards = await this.prisma.flashcardData.findMany({
+      where: {
+        createdBy: {
+          rol: 'ALUMNO',
+        },
+      },
+    });
+
+    // Genera la hoja de cálculo Excel
+    const worksheet = XLSX.utils.json_to_sheet(flashcards);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Flashcards');
+
+    // Escribe el archivo Excel en un buffer
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // Configura los headers para la descarga del archivo
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="flashcards.xlsx"',
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+
+    // Envía el archivo al cliente como binario
+    res.send(buffer);
   }
 
   async getFlashcardTestsWithCategories(

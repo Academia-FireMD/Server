@@ -558,6 +558,9 @@ export class TestService extends PaginatedService<Test> {
         where: {
           test: {
             realizadorId: usuarioId,
+            id: {
+              not: dto.testId,
+            },
           },
           preguntaId: dto.preguntaId,
           esCorrecta: false,
@@ -652,16 +655,6 @@ export class TestService extends PaginatedService<Test> {
 
         // Extraer las preguntas falladas
         preguntasDisponibles = fallos.map((fallo) => fallo.pregunta);
-
-        // Si hay más preguntas solicitadas de las disponibles, repetir las preguntas
-        // if (preguntasDisponibles.length < dto.numPreguntas) {
-        //   const faltantes = dto.numPreguntas - preguntasDisponibles.length;
-        //   for (let i = 0; i < faltantes; i++) {
-        //     const preguntaRepetida =
-        //       preguntasDisponibles[i % preguntasDisponibles.length];
-        //     preguntasDisponibles.push(preguntaRepetida);
-        //   }
-        // }
       } else {
         // Obtener preguntas disponibles según los filtros normales
         preguntasDisponibles = await prisma.pregunta.findMany({
@@ -739,7 +732,9 @@ export class TestService extends PaginatedService<Test> {
         (p) => p.dificultad === Dificultad.BASICO,
       ),
       [Dificultad.PRIVADAS]: preguntas.filter(
-        (p) => p.dificultad === Dificultad.PRIVADAS,
+        (p) =>
+          p.dificultad === Dificultad.PRIVADAS ||
+          p.dificultad == Dificultad.PUBLICAS,
       ),
       [Dificultad.PUBLICAS]: preguntas.filter(
         (p) => p.dificultad === Dificultad.PUBLICAS,

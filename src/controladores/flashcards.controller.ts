@@ -6,12 +6,14 @@ import {
   Param,
   Post,
   Request,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Rol } from '@prisma/client';
+import { Response } from 'express'; // Esto es válido incluso si estás usando Fastify
 import { NewFlashcardTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { DateRangeDto } from 'src/dtos/range.dto';
@@ -165,5 +167,11 @@ export class FlashcardDataController {
   @Post('/test-stats-by-category-admin/')
   async getTestStatsByCategoryAdmin(@Body() body: DateRangeDto) {
     return this.service.getFlashcardTestsWithCategories(body);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Post('/flashcards-creados-por-alumno')
+  async getAllFlashcardsCreadasPorAlumnos(@Res() res: Response) {
+    return this.service.getAllFlashcardsCreadasPorAlumnos(res);
   }
 }
