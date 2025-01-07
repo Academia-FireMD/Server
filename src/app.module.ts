@@ -6,6 +6,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthController } from './controladores/auth.controller';
+import { DocumentosController } from './controladores/documents.controller';
 import { FactorController } from './controladores/factor.controller';
 import { FlashcardDataController } from './controladores/flashcards.controller';
 import { PlanificacionController } from './controladores/planification.controller';
@@ -15,7 +16,9 @@ import { TemaController } from './controladores/tema.controller';
 import { TestController } from './controladores/test.controller';
 import { UserController } from './controladores/user.controller';
 import { JwtStrategy } from './jwt/jwt.strategy';
+import { CloudinaryProvider } from './providers/cloudinary.provider';
 import { AuthService } from './servicios/auth.service';
+import { DocumentosService } from './servicios/documents.service';
 import { EmailService } from './servicios/email.service';
 import { FactorService } from './servicios/factor.service';
 import { FeedbackService } from './servicios/feedback.service';
@@ -60,6 +63,7 @@ import { UsersService } from './servicios/user.service';
     TemaController,
     FlashcardDataController,
     PlanificacionController,
+    DocumentosController,
   ],
   providers: [
     ConfigService,
@@ -83,6 +87,8 @@ import { UsersService } from './servicios/user.service';
     PlanificacionMensualService,
     SubBloqueService,
     EmailService,
+    DocumentosService,
+    CloudinaryProvider,
   ],
 })
 export class AppModule {}

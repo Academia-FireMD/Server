@@ -376,6 +376,9 @@ export class TestService extends PaginatedService<Test> {
             respuestaDada: true,
             esCorrecta: true,
             estado: true, // Incluir el estado de la respuesta
+            preguntaId: true,
+            seguridad: true,
+            indicePregunta: true,
           },
         },
         testPreguntas: {
@@ -512,23 +515,53 @@ export class TestService extends PaginatedService<Test> {
 
     const esCorrecta = pregunta.respuestaCorrectaIndex === dto.respuestaDada;
 
-    const respuesta = await this.prisma.respuesta.create({
-      data: {
+    const respuestaExistente = await this.prisma.respuesta.findFirst({
+      where: {
         testId: dto.testId,
         preguntaId: dto.preguntaId,
-        respuestaDada: dto.respuestaDada,
-        esCorrecta: esCorrecta,
-        estado: dto.omitida ? 'OMITIDA' : 'RESPONDIDA', // Estado dependiendo de si se omitió o no
-        seguridad: dto.seguridad ?? SeguridadAlResponder.CIEN_POR_CIENTO,
-      },
-      include: {
-        pregunta: {
-          select: {
-            respuestaCorrectaIndex: true,
-          },
-        },
+        indicePregunta: dto.indicePregunta,
       },
     });
+    let respuesta: Respuesta = null;
+    if (!!respuestaExistente) {
+      respuesta = await this.prisma.respuesta.update({
+        where: {
+          id: respuestaExistente.id,
+        },
+        data: {
+          respuestaDada: dto.respuestaDada,
+          esCorrecta: esCorrecta,
+          estado: dto.omitida ? 'OMITIDA' : 'RESPONDIDA', // Estado dependiendo de si se omitió o no
+          seguridad: dto.seguridad ?? SeguridadAlResponder.CIEN_POR_CIENTO,
+        },
+        include: {
+          pregunta: {
+            select: {
+              respuestaCorrectaIndex: true,
+            },
+          },
+        },
+      });
+    } else {
+      respuesta = await this.prisma.respuesta.create({
+        data: {
+          testId: dto.testId,
+          preguntaId: dto.preguntaId,
+          respuestaDada: dto.respuestaDada,
+          esCorrecta: esCorrecta,
+          indicePregunta: dto.indicePregunta,
+          estado: dto.omitida ? 'OMITIDA' : 'RESPONDIDA', // Estado dependiendo de si se omitió o no
+          seguridad: dto.seguridad ?? SeguridadAlResponder.CIEN_POR_CIENTO,
+        },
+        include: {
+          pregunta: {
+            select: {
+              respuestaCorrectaIndex: true,
+            },
+          },
+        },
+      });
+    }
 
     // Aplicar lógica del factor
     const factorPivot = await this.prisma.factor.findUnique({
@@ -656,6 +689,7 @@ export class TestService extends PaginatedService<Test> {
         // Extraer las preguntas falladas
         preguntasDisponibles = fallos.map((fallo) => fallo.pregunta);
       } else {
+        if (!dto.dificultad) dto.dificultad = Dificultad.INTERMEDIO;
         // Obtener preguntas disponibles según los filtros normales
         preguntasDisponibles = await prisma.pregunta.findMany({
           where: {

@@ -20,6 +20,9 @@ export class RegistrarRespuestaDto {
   @IsOptional()
   respuestaDada?: number;
 
+  @IsInt()
+  indicePregunta?: number;
+
   @IsBoolean()
   @IsOptional()
   omitida?: boolean;

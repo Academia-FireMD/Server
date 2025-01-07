@@ -175,6 +175,7 @@ model Respuesta {
   pregunta      Pregunta              @relation(fields: [preguntaId], references: [id])
   preguntaId    Int
   respuestaDada Int?
+  indicePregunta Int @default(0)
   esCorrecta    Boolean
   seguridad     SeguridadAlResponder? @default(CIEN_POR_CIENTO)
   estado        EstadoPregunta        @default(NO_RESPONDIDA) // Estado de la respuesta
@@ -183,26 +184,26 @@ model Respuesta {
 }
 
 model Usuario {
-  id             Int             @id @default(autoincrement())
-  email          String          @unique
-  contrasenya    String
-  nombre         String          @default("")
-  apellidos      String          @default("")
-  rol            Rol             @default(ALUMNO)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  validated      Boolean         @default(false)
-  tests          Test[]
-  flashcardTests FlashcardTest[]
-  comunidad      Comunidad       @default(VALENCIA)
-  Feedback       Feedback[]
-  ReporteFallo   ReporteFallo[]
-  esTutor        Boolean         @default(false)
+  id                Int           @id @default(autoincrement())
+  email             String        @unique
+  contrasenya       String
+  nombre            String        @default("")
+  apellidos         String        @default("")
+  rol               Rol           @default(ALUMNO)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  validated         Boolean       @default(false)
+  tests             Test[]
+  flashcardTests    FlashcardTest[]
+  comunidad         Comunidad     @default(VALENCIA)
+  Feedback          Feedback[]
+  ReporteFallo      ReporteFallo[]
+  esTutor           Boolean       @default(false)
   tipoDePlanificacionDuracionDeseada TipoDePlanificacionDeseada @default(SEIS_HORAS)
   resetPasswordToken  String?
   resetPasswordExpires DateTime?
 
-  // Relación tutor-alumno
+ // Relación tutor-alumno
   tutorId Int? // Clave foránea opcional
   tutor   Usuario?  @relation("TutorAlumno", fields: [tutorId], references: [id])
   alumnos Usuario[] @relation("TutorAlumno")
@@ -215,6 +216,11 @@ model Usuario {
   // Relación con FlashcardData
   createdFlashcards FlashcardData[] @relation("FlashcardCreatedBy")
   updatedFlashcards FlashcardData[] @relation("FlashcardUpdatedBy")
+
+  // Relación con Documentos
+  documentosCreados Documento[]  @relation("DocumentosCreados") // Usuario que crea documentos
+  documentosActualizados Documento[] @relation("DocumentosActualizados") // Usuario que actualiza documentos
+  documentosAsignados Documento[] @relation("DocumentosAsignados") // Documentos asignados a este usuario
 }
 
 model Feedback {
@@ -308,6 +314,29 @@ model AsignacionAlumno {
 
   @@id([alumnoId, planificacionId]) // Llave primaria compuesta para evitar duplicados
 }
+
+model Documento {
+  id           Int      @id @default(autoincrement())
+  identificador String   @unique
+  descripcion  String?
+  url          String   // URL donde se hospeda el documento
+  esPublico    Boolean  @default(true) // Indica si es público o privado
+
+  // Relación con Usuario
+  asignadoA    Usuario? @relation("DocumentosAsignados", fields: [usuarioId], references: [id])
+  usuarioId    Int?
+
+  createdBy    Usuario  @relation("DocumentosCreados", fields: [createdById], references: [id])
+  createdById  Int
+
+  updatedBy Usuario? @relation("DocumentosActualizados", fields: [updatedById], references: [id])
+  updatedById    Int?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+
 
 enum FactorName {
   PREGUNTAS_MALAS_PIVOT
