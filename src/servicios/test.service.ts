@@ -691,28 +691,48 @@ export class TestService extends PaginatedService<Test> {
       } else {
         if (!dto.dificultad) dto.dificultad = Dificultad.INTERMEDIO;
         // Obtener preguntas disponibles según los filtros normales
-        preguntasDisponibles = await prisma.pregunta.findMany({
-          where: {
-            temaId: { in: dto.temas },
-            createdById:
-              dto.dificultad == Dificultad.PRIVADAS ? userId : undefined,
-            relevancia: {
-              has: userComunidad,
+        if (
+          dto.dificultad == Dificultad.PRIVADAS ||
+          dto.dificultad == Dificultad.PUBLICAS
+        ) {
+          preguntasDisponibles = await prisma.pregunta.findMany({
+            where: {
+              temaId: { in: dto.temas },
+              createdById:
+                dto.dificultad == Dificultad.PRIVADAS ? userId : undefined,
+              relevancia: {
+                has: userComunidad,
+              },
+              dificultad: {
+                in:
+                  dto.dificultad == Dificultad.PRIVADAS
+                    ? [Dificultad.PRIVADAS, Dificultad.PUBLICAS]
+                    : [Dificultad.PUBLICAS],
+              },
             },
-          },
-        });
+          });
+        } else {
+          preguntasDisponibles = await prisma.pregunta.findMany({
+            where: {
+              temaId: { in: dto.temas },
+              dificultad: {
+                notIn: [Dificultad.PRIVADAS, Dificultad.PUBLICAS],
+              },
+              relevancia: {
+                has: userComunidad,
+              },
+            },
+          });
+        }
 
         if (preguntasDisponibles.length === 0) {
           throw new BadRequestException(
             'No hay preguntas disponibles para los temas seleccionados.',
           );
         }
-
-        // Seleccionar preguntas según la dificultad y cantidad solicitada
-        preguntasDisponibles = this.seleccionarPreguntasPorDificultad(
+        preguntasDisponibles = this.seleccionarPreguntasConShuffle(
           preguntasDisponibles,
           dto.numPreguntas,
-          dto.dificultad,
         );
       }
 
@@ -747,89 +767,6 @@ export class TestService extends PaginatedService<Test> {
     return testConPreguntas;
   }
 
-  private seleccionarPreguntasPorDificultad(
-    preguntas: Pregunta[],
-    numPreguntas: number,
-    dificultadSolicitada: Dificultad,
-  ): Pregunta[] {
-    const distribucion =
-      this.obtenerDistribucionDificultad(dificultadSolicitada);
-
-    const preguntasPorDificultad = {
-      [Dificultad.DIFICIL]: preguntas.filter(
-        (p) => p.dificultad === Dificultad.DIFICIL,
-      ),
-      [Dificultad.INTERMEDIO]: preguntas.filter(
-        (p) => p.dificultad === Dificultad.INTERMEDIO,
-      ),
-      [Dificultad.BASICO]: preguntas.filter(
-        (p) => p.dificultad === Dificultad.BASICO,
-      ),
-      [Dificultad.PRIVADAS]: preguntas.filter(
-        (p) =>
-          p.dificultad === Dificultad.PRIVADAS ||
-          p.dificultad == Dificultad.PUBLICAS,
-      ),
-      [Dificultad.PUBLICAS]: preguntas.filter(
-        (p) => p.dificultad === Dificultad.PUBLICAS,
-      ),
-    };
-
-    if (
-      dificultadSolicitada === Dificultad.PRIVADAS ||
-      dificultadSolicitada === Dificultad.PUBLICAS
-    ) {
-      return this.seleccionarPreguntasConShuffle(
-        preguntasPorDificultad[dificultadSolicitada],
-        numPreguntas,
-      );
-    }
-
-    let seleccionadas: Pregunta[] = [];
-
-    const seleccionarConRepeticion = (
-      listaPreguntas: Pregunta[],
-      cantidad: number,
-    ): Pregunta[] => {
-      const resultado: Pregunta[] = [];
-      for (let i = 0; i < cantidad; i++) {
-        const indice = Math.floor(Math.random() * listaPreguntas.length);
-        resultado.push(listaPreguntas[indice]);
-      }
-      return resultado;
-    };
-
-    seleccionadas.push(
-      ...seleccionarConRepeticion(
-        preguntasPorDificultad.DIFICIL,
-        Math.round(distribucion.dificil * numPreguntas),
-      ),
-    );
-
-    seleccionadas.push(
-      ...seleccionarConRepeticion(
-        preguntasPorDificultad.INTERMEDIO,
-        Math.round(distribucion.intermedio * numPreguntas),
-      ),
-    );
-
-    seleccionadas.push(
-      ...seleccionarConRepeticion(
-        preguntasPorDificultad.BASICO,
-        Math.round(distribucion.facil * numPreguntas),
-      ),
-    );
-
-    seleccionadas = seleccionadas.filter((e) => !!e);
-
-    while (seleccionadas.length < numPreguntas) {
-      const indice = Math.floor(Math.random() * preguntas.length);
-      seleccionadas.push(preguntas[indice]);
-    }
-
-    return seleccionadas.slice(0, numPreguntas);
-  }
-
   private seleccionarPreguntasConShuffle(
     preguntas: Pregunta[],
     numPreguntas: number,
@@ -847,18 +784,6 @@ export class TestService extends PaginatedService<Test> {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
-    }
-  }
-
-  private obtenerDistribucionDificultad(dificultad: Dificultad) {
-    switch (dificultad) {
-      case Dificultad.DIFICIL:
-        return { dificil: 0.6, intermedio: 0.3, facil: 0.1 };
-      case Dificultad.INTERMEDIO:
-        return { dificil: 0.3, intermedio: 0.5, facil: 0.2 };
-      case Dificultad.BASICO:
-      default:
-        return { dificil: 0.1, intermedio: 0.3, facil: 0.6 };
     }
   }
 }

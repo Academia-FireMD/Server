@@ -34,6 +34,7 @@ export class AuthService {
       sub: user.id,
       rol: user.rol,
       comunidad: user.comunidad,
+      nombre: user.nombre,
     };
 
     const accessToken = this.jwtService.sign(payload, {

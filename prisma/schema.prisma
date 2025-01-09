@@ -17,6 +17,7 @@ enum Comunidad {
 }
 
 enum TipoDePlanificacionDeseada {
+  DOS_HORAS
   CUATRO_HORAS
   SEIS_HORAS
   OCHO_HORAS
@@ -50,7 +51,7 @@ enum TestStatus {
 model Test {
   id            Int            @id @default(autoincrement())
   testPreguntas TestPregunta[]
-  realizador    Usuario        @relation(fields: [realizadorId], references: [id])
+  realizador    Usuario        @relation(fields: [realizadorId], references: [id], onDelete: Cascade)
   realizadorId  Int
   status        TestStatus     @default(CREADO)
   respuestas    Respuesta[]
@@ -65,7 +66,7 @@ model Pregunta {
   id                     Int                   @id @default(autoincrement())
   identificador          String                @unique
   relevancia             Comunidad[]
-  dificultad             Dificultad
+  dificultad             Dificultad @default(INTERMEDIO)
   tema                   Tema                  @relation(fields: [temaId], references: [id], onDelete: Cascade)
   temaId                 Int
   descripcion            String
@@ -79,10 +80,11 @@ model Pregunta {
   Respuesta              Respuesta[]
   Feedback               Feedback[]
   ReporteFallo           ReporteFallo[]
-  createdBy              Usuario?               @relation("PreguntaCreatedBy", fields: [createdById], references: [id])
-  createdById            Int?
-  updatedBy              Usuario?              @relation("PreguntaUpdatedBy", fields: [updatedById], references: [id])
-  updatedById            Int?
+  createdBy Usuario? @relation("PreguntaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById Int?
+  
+  updatedBy Usuario? @relation("PreguntaUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedById Int?
 }
 
 model FlashcardTest {
@@ -120,7 +122,7 @@ model FlashcardData {
   id                 Int                  @id @default(autoincrement())
   identificador      String               @unique
   relevancia         Comunidad[]
-  dificultad         Dificultad
+  dificultad         Dificultad @default(INTERMEDIO)
   tema               Tema                 @relation(fields: [temaId], references: [id], onDelete: Cascade)
   temaId             Int
   descripcion        String
@@ -131,10 +133,11 @@ model FlashcardData {
   ReporteFallo       ReporteFallo[]
   FlashcardTestItem  FlashcardTestItem[]
   FlashcardRespuesta FlashcardRespuesta[]
-  createdBy          Usuario?             @relation("FlashcardCreatedBy", fields: [createdById], references: [id])
-  createdById        Int?
-  updatedBy          Usuario?             @relation("FlashcardUpdatedBy", fields: [updatedById], references: [id])
-  updatedById        Int?
+  createdBy Usuario? @relation("FlashcardCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById Int?
+  
+  updatedBy Usuario? @relation("FlashcardUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedById Int?
 }
 
 enum EstadoFlashcard {
@@ -172,7 +175,7 @@ model Respuesta {
   id            Int                   @id @default(autoincrement())
   test          Test                  @relation(fields: [testId], references: [id], onDelete: Cascade)
   testId        Int
-  pregunta      Pregunta              @relation(fields: [preguntaId], references: [id])
+  pregunta      Pregunta              @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
   preguntaId    Int
   respuestaDada Int?
   indicePregunta Int @default(0)
@@ -322,18 +325,14 @@ model Documento {
   url          String   // URL donde se hospeda el documento
   esPublico    Boolean  @default(true) // Indica si es público o privado
 
-  // Relación con Usuario
-  asignadoA    Usuario? @relation("DocumentosAsignados", fields: [usuarioId], references: [id])
-  usuarioId    Int?
-
-  createdBy    Usuario  @relation("DocumentosCreados", fields: [createdById], references: [id])
-  createdById  Int
-
-  updatedBy Usuario? @relation("DocumentosActualizados", fields: [updatedById], references: [id])
-  updatedById    Int?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdBy Usuario?  @relation("DocumentosCreados", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById Int?
+  
+  updatedBy Usuario? @relation("DocumentosActualizados", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedById Int?
+  
+  asignadoA Usuario? @relation("DocumentosAsignados", fields: [usuarioId], references: [id], onDelete: SetNull)
+  usuarioId Int?
 }
 
 

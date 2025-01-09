@@ -15,8 +15,8 @@ export const generarIdentificador = async (
   const map = {
     ['FLASHCARD']: {
       [Rol.ADMIN]: {
-        obtainCount: () => {
-          return prisma.flashcardData.count({
+        obtainNextId: async () => {
+          const maxId = await prisma.flashcardData.aggregate({
             where: {
               temaId: temaId,
               createdBy: {
@@ -25,26 +25,34 @@ export const generarIdentificador = async (
                 },
               },
             },
+            _max: {
+              id: true,
+            },
           });
+          return (maxId._max.id || 0) + 1; // Si no hay registros, empieza desde 1
         },
       },
       [Rol.ALUMNO]: {
-        obtainCount: () => {
-          return prisma.flashcardData.count({
+        obtainNextId: async () => {
+          const maxId = await prisma.flashcardData.aggregate({
             where: {
               temaId: temaId,
               createdBy: {
                 rol: 'ALUMNO',
               },
             },
+            _max: {
+              id: true,
+            },
           });
+          return (maxId._max.id || 0) + 1; // Si no hay registros, empieza desde 1
         },
       },
     },
     ['PREGUNTA']: {
       [Rol.ADMIN]: {
-        obtainCount: () => {
-          return prisma.pregunta.count({
+        obtainNextId: async () => {
+          const maxId = await prisma.pregunta.aggregate({
             where: {
               temaId: temaId,
               createdBy: {
@@ -53,19 +61,27 @@ export const generarIdentificador = async (
                 },
               },
             },
+            _max: {
+              id: true,
+            },
           });
+          return (maxId._max.id || 0) + 1; // Si no hay registros, empieza desde 1
         },
       },
       [Rol.ALUMNO]: {
-        obtainCount: () => {
-          return prisma.pregunta.count({
+        obtainNextId: async () => {
+          const maxId = await prisma.pregunta.aggregate({
             where: {
               temaId: temaId,
               createdBy: {
                 rol: 'ALUMNO',
               },
             },
+            _max: {
+              id: true,
+            },
           });
+          return (maxId._max.id || 0) + 1; // Si no hay registros, empieza desde 1
         },
       },
     },
@@ -80,7 +96,7 @@ export const generarIdentificador = async (
   const secondChar = foundTema.categoria.charAt(0);
   const thirdChar = rol == Rol.ALUMNO ? 'A' : '';
   const forthChar = foundTema.numero;
-  const code = await map[type][rol].obtainCount();
+  const code = await map[type][rol].obtainNextId();
   return (
     firstChar +
     secondChar +

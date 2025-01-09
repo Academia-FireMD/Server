@@ -733,6 +733,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
               ano: planificacionOriginal.ano,
               createdAt: new Date(),
               updatedAt: new Date(),
+              tipoDePlanificacion: planificacionOriginal.tipoDePlanificacion,
               subBloques: {
                 create: subBloquesClonados,
               },

@@ -21,6 +21,7 @@ import {
   CreateFlashcardDataDto,
   UpdateFlashcardDataDto,
 } from 'src/dtos/update-flashcard.dto';
+import { generarIdentificador } from 'src/utils/utils';
 import * as XLSX from 'xlsx';
 import { PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
@@ -724,28 +725,32 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
     });
   }
 
-  public updateFlashcard(
+  public async updateFlashcard(
     dto: UpdateFlashcardDataDto | CreateFlashcardDataDto,
     userId: number,
   ) {
-    // if (!dto.temaId)
-    //   throw new BadRequestException('El tema no puede ser nulo!');
-    // const user = await this.prisma.usuario.findFirst({
-    //   where: {
-    //     id: userId,
-    //   },
-    // });
-    // const tema = await this.prisma.tema.findFirst({
-    //   where: {
-    //     id: dto.temaId,
-    //   },
-    // });
-    // if (!dto.identificador && 'id' in dto)
-    //   throw new BadRequestException('El identificador no puede ser nulo');
-    // let identifierWhenCreating = dto.identificador;
-    // const userIsAlumno = user.rol == 'ALUMNO';
-    // identifierWhenCreating = 'FL';
-    // identifierWhenCreating += tema.numero;
+    const user = await this.prisma.usuario.findFirst({
+      where: {
+        id: userId,
+      },
+    });
+    if (!user) throw new BadRequestException('Usuario no existe!');
+    if (!dto.relevancia || dto.relevancia.length == 0)
+      throw new BadRequestException('Debes seleccionar una relevancia!');
+    if (!dto.temaId)
+      throw new BadRequestException('El tema no puede ser nulo!');
+    if (!dto.descripcion)
+      throw new BadRequestException('El enunciado no puede estar vacio!');
+    if (!dto.solucion)
+      throw new BadRequestException('La solución no puede estar vacia!');
+    //Auto generar identificador
+    if (!dto.identificador)
+      dto.identificador = await generarIdentificador(
+        user.rol,
+        'FLASHCARD',
+        dto.temaId,
+        this.prisma,
+      );
     if ('id' in dto) {
       return this.prisma.flashcardData.update({
         where: {
@@ -754,7 +759,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         data: {
           identificador: dto.identificador,
           relevancia: dto.relevancia,
-          dificultad: dto.dificultad,
+          dificultad: dto.dificultad ?? Dificultad.INTERMEDIO,
           tema: {
             connect: {
               id: dto.temaId,
@@ -774,7 +779,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         data: {
           identificador: dto.identificador,
           relevancia: dto.relevancia,
-          dificultad: dto.dificultad,
+          dificultad: dto.dificultad ?? Dificultad.INTERMEDIO,
           tema: {
             connect: {
               id: dto.temaId,

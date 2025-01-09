@@ -97,6 +97,12 @@ export class PreguntasService extends PaginatedService<Pregunta> {
     dto: UpdatePreguntaDto | CreatePreguntaDto,
     userId: number,
   ) {
+    if (!dto.relevancia || dto.relevancia.length == 0)
+      throw new BadRequestException('Debes seleccionar una relevancia!');
+    if (!dto.temaId)
+      throw new BadRequestException('El tema no puede ser nulo!');
+    if (!dto.descripcion)
+      throw new BadRequestException('La descripción es requerida!');
     const user = await this.prisma.usuario.findFirst({
       where: {
         id: userId,
@@ -111,12 +117,6 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         dto.temaId,
         this.prisma,
       );
-    if (!dto.dificultad)
-      throw new BadRequestException('La dificultad no puede ser nula!');
-    if (!dto.temaId)
-      throw new BadRequestException('El tema no puede ser nulo!');
-    if (!dto.descripcion)
-      throw new BadRequestException('La descripción es requerida!');
     if ('id' in dto) {
       return this.prisma.pregunta.update({
         where: {
@@ -125,7 +125,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         data: {
           identificador: dto.identificador,
           relevancia: dto.relevancia,
-          dificultad: dto.dificultad,
+          dificultad: dto.dificultad ?? Dificultad.INTERMEDIO,
           tema: {
             connect: {
               id: dto.temaId,
@@ -148,7 +148,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         data: {
           identificador: dto.identificador,
           relevancia: dto.relevancia,
-          dificultad: dto.dificultad,
+          dificultad: dto.dificultad ?? Dificultad.INTERMEDIO,
           tema: {
             connect: {
               id: dto.temaId,
