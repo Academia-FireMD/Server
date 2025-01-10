@@ -253,7 +253,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
           identificador: entry['identificador'].toString(),
           descripcion: entry['Descripción'],
           solucion: entry['Solución'] ?? '',
-          respuestas: respuestasArray,
+          respuestas: respuestasArray.map((e) => e + ''),
           respuestaCorrectaIndex: parseInt(entry['Correct answer'], 10) - 1,
           temaId: temaExistente.id,
           dificultad: dificultadEnum,
