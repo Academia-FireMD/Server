@@ -11,7 +11,15 @@ import {
   TestPregunta,
   TestStatus,
 } from '@prisma/client';
-import { firstValueFrom, from, map, mergeMap, of, toArray } from 'rxjs';
+import {
+  firstValueFrom,
+  forkJoin,
+  from,
+  map,
+  mergeMap,
+  of,
+  toArray,
+} from 'rxjs';
 import { NewTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { DateRangeDto } from 'src/dtos/range.dto';
@@ -276,13 +284,26 @@ export class TestService extends PaginatedService<Test> {
 
     // Crear un mapa para la seguridad con las estadísticas de respuestas
     const seguridadMap = {
-      CINCUENTA_POR_CIENTO: { correctas: 0, incorrectas: 0, noRespondidas: 0 },
-      SETENTA_Y_CINCO_POR_CIENTO: {
+      [SeguridadAlResponder.CINCUENTA_POR_CIENTO]: {
         correctas: 0,
         incorrectas: 0,
         noRespondidas: 0,
       },
-      CIEN_POR_CIENTO: { correctas: 0, incorrectas: 0, noRespondidas: 0 },
+      [SeguridadAlResponder.SETENTA_Y_CINCO_POR_CIENTO]: {
+        correctas: 0,
+        incorrectas: 0,
+        noRespondidas: 0,
+      },
+      [SeguridadAlResponder.CIEN_POR_CIENTO]: {
+        correctas: 0,
+        incorrectas: 0,
+        noRespondidas: 0,
+      },
+      [SeguridadAlResponder.CERO_POR_CIENTO]: {
+        correctas: 0,
+        incorrectas: 0,
+        noRespondidas: 0,
+      },
     };
 
     // Procesar las estadísticas de las respuestas (solo correctas e incorrectas)
@@ -370,28 +391,12 @@ export class TestService extends PaginatedService<Test> {
     const test = await this.prisma.test.findFirst({
       where: { id: testId },
       include: {
-        respuestas: {
-          select: {
-            id: true,
-            respuestaDada: true,
-            esCorrecta: true,
-            estado: true, // Incluir el estado de la respuesta
-            preguntaId: true,
-            seguridad: true,
-            indicePregunta: true,
-          },
-        },
+        respuestas: true,
+
         testPreguntas: {
           include: {
             pregunta: {
-              select: {
-                id: true,
-                identificador: true,
-                dificultad: true,
-                descripcion: true,
-                solucion: true,
-                respuestas: true,
-                seguridad: true,
+              include: {
                 tema: true,
               },
             },
@@ -479,6 +484,34 @@ export class TestService extends PaginatedService<Test> {
         respuestasCount: test.respuestas.length,
         testPreguntasCount: test.testPreguntas.length,
       }));
+  }
+
+  public async finalizarTest(testId: number, usuarioId: number) {
+    const test = await this.getTestById(testId);
+    if (test.realizadorId != usuarioId)
+      throw new BadRequestException('Este test no te pertenece!');
+    const preguntasSinResponder = test.preguntas.filter(
+      (pregunta, indexPregunta) => {
+        const indices = test.respuestas.map(
+          (respuesta) => respuesta.indicePregunta,
+        );
+        return !indices.includes(indexPregunta);
+      },
+    );
+    return forkJoin(
+      preguntasSinResponder.map((pregunta) => {
+        return this.prisma.respuesta.create({
+          data: {
+            testId,
+            preguntaId: pregunta.id,
+            respuestaDada: null,
+            esCorrecta: false,
+            estado: 'OMITIDA',
+            seguridad: SeguridadAlResponder.CIEN_POR_CIENTO,
+          },
+        });
+      }),
+    );
   }
 
   public async registrarRespuesta(

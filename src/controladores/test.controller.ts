@@ -74,6 +74,13 @@ export class TestController {
     return this.service.registrarRespuesta(dto, id);
   }
 
+  @Roles(Rol.ALUMNO, Rol.ADMIN)
+  @Post('finalizar-test/:id')
+  async finalizarTest(@Param('id') testId: string, @Request() req) {
+    const { id } = req.user;
+    return this.service.finalizarTest(Number(testId), Number(id));
+  }
+
   @Roles(Rol.ALUMNO)
   @Post('start')
   async startTest(@Body() dto: NewTestDto, @Request() req) {

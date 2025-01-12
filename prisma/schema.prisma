@@ -32,6 +32,7 @@ enum Dificultad {
 }
 
 enum SeguridadAlResponder {
+  CERO_POR_CIENTO
   CINCUENTA_POR_CIENTO
   SETENTA_Y_CINCO_POR_CIENTO
   CIEN_POR_CIENTO
@@ -324,6 +325,9 @@ model Documento {
   descripcion  String?
   url          String   // URL donde se hospeda el documento
   esPublico    Boolean  @default(true) // Indica si es público o privado
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt @default(now())
 
   createdBy Usuario?  @relation("DocumentosCreados", fields: [createdById], references: [id], onDelete: SetNull)
   createdById Int?
