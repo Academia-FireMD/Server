@@ -35,6 +35,7 @@ export class AuthService {
       rol: user.rol,
       comunidad: user.comunidad,
       nombre: user.nombre,
+      avatarUrl: user.avatarUrl,
     };
 
     const accessToken = this.jwtService.sign(payload, {

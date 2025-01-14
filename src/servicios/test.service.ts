@@ -490,28 +490,39 @@ export class TestService extends PaginatedService<Test> {
     const test = await this.getTestById(testId);
     if (test.realizadorId != usuarioId)
       throw new BadRequestException('Este test no te pertenece!');
-    const preguntasSinResponder = test.preguntas.filter(
-      (pregunta, indexPregunta) => {
-        const indices = test.respuestas.map(
-          (respuesta) => respuesta.indicePregunta,
-        );
-        return !indices.includes(indexPregunta);
-      },
-    );
-    return forkJoin(
-      preguntasSinResponder.map((pregunta) => {
-        return this.prisma.respuesta.create({
-          data: {
-            testId,
-            preguntaId: pregunta.id,
-            respuestaDada: null,
-            esCorrecta: false,
-            estado: 'OMITIDA',
-            seguridad: SeguridadAlResponder.CIEN_POR_CIENTO,
-          },
-        });
-      }),
-    );
+    return this.prisma.$transaction(async (prisma) => {
+      const preguntasSinResponder = [];
+      const respuestasIndex = test.respuestas.map((e) => e.indicePregunta);
+      test.preguntas.forEach((pregunta, index) => {
+        if (!respuestasIndex.includes(index))
+          preguntasSinResponder.push(pregunta);
+      });
+      await firstValueFrom(
+        forkJoin(
+          preguntasSinResponder.map((pregunta) => {
+            return prisma.respuesta.create({
+              data: {
+                testId,
+                preguntaId: pregunta.id,
+                respuestaDada: null,
+                esCorrecta: false,
+                estado: 'OMITIDA',
+                seguridad: SeguridadAlResponder.CIEN_POR_CIENTO,
+              },
+            });
+          }),
+        ),
+      );
+      const testRes = await prisma.test.update({
+        where: {
+          id: testId,
+        },
+        data: {
+          status: 'FINALIZADO',
+        },
+      });
+      return testRes;
+    });
   }
 
   public async registrarRespuesta(

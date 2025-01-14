@@ -5,8 +5,12 @@ import {
   Get,
   Param,
   Post,
+  Request,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Rol, Usuario } from '@prisma/client';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { Roles, RolesGuard } from 'src/guards/roles.guard';
@@ -16,6 +20,18 @@ import { UsersService } from 'src/servicios/user.service';
 @UseGuards(RolesGuard)
 export class UserController {
   constructor(private usersService: UsersService) {}
+
+  @Post('upload-avatar')
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDocumento(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req,
+  ) {
+    const { id } = req.user;
+    return this.usersService.uploadAvatar(file, Number(id));
+  }
+
   @Roles(Rol.ADMIN)
   @Post('pending')
   async pending(@Body() body: PaginationDto) {

@@ -161,7 +161,7 @@ model TestPregunta {
   id         Int      @id @default(autoincrement())
   test       Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
   testId     Int
-  pregunta   Pregunta @relation(fields: [preguntaId], references: [id])
+  pregunta   Pregunta @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
   preguntaId Int
   createdAt  DateTime @default(now())
 }
@@ -206,6 +206,7 @@ model Usuario {
   tipoDePlanificacionDuracionDeseada TipoDePlanificacionDeseada @default(SEIS_HORAS)
   resetPasswordToken  String?
   resetPasswordExpires DateTime?
+  avatarUrl String?
 
  // Relación tutor-alumno
   tutorId Int? // Clave foránea opcional

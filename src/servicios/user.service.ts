@@ -6,13 +6,36 @@ import {
 import { Comunidad, Usuario } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PaginationDto } from 'src/dtos/pagination.dto';
+import { CloudinaryProvider } from 'src/providers/cloudinary.provider';
 import { PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
 export class UsersService extends PaginatedService<Usuario> {
-  constructor(public prisma: PrismaService) {
+  constructor(
+    public prisma: PrismaService,
+    private cloudinary: CloudinaryProvider,
+  ) {
     super(prisma);
+  }
+
+  async uploadAvatar(file: Express.Multer.File, usuarioId: number) {
+    const folder = 'academia/avatares';
+    const uploadResult = await this.cloudinary.uploadFile(file, folder);
+
+    // Guarda la referencia en la base de datos
+    if (!usuarioId)
+      throw new BadRequestException('Debe existir un usuario seleccionado!');
+    const documento = await this.prisma.usuario.update({
+      where: {
+        id: usuarioId,
+      },
+      data: {
+        avatarUrl: uploadResult.secure_url,
+      },
+    });
+
+    return documento;
   }
 
   async createUser(

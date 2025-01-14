@@ -79,6 +79,7 @@ export class AuthController {
           rol: payload.rol,
           comunidad: payload.comunidad,
           nombre: payload.nombre,
+          avatarUrl: payload.avatarUrl,
         },
         { expiresIn: '60m' }, // Nueva duración del access token
       );
