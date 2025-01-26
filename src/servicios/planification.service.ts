@@ -466,6 +466,58 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     return res;
   }
 
+  public async clonarPlanificacionMensual(id: string) {
+    return await this.prisma.$transaction(async (prisma) => {
+      // Buscar la planificación mensual original con sus subBloques
+      const planificacionOriginal =
+        await prisma.planificacionMensual.findUnique({
+          where: { id: Number(id) },
+          include: { subBloques: true },
+        });
+
+      if (!planificacionOriginal) {
+        throw new BadRequestException('La planificación mensual no existe.');
+      }
+
+      // Clonar los subBloques
+      const subBloquesClonados = planificacionOriginal.subBloques.map(
+        (subBloque) => ({
+          horaInicio: subBloque.horaInicio,
+          duracion: subBloque.duracion,
+          nombre: subBloque.nombre,
+          comentarios: subBloque.comentarios,
+          color: subBloque.color,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      );
+
+      // Crear la nueva planificación con los subBloques clonados
+      const nuevaPlanificacion = await prisma.planificacionMensual.create({
+        data: {
+          identificador: `${planificacionOriginal.identificador}-CLON`,
+          descripcion: planificacionOriginal.descripcion,
+          ano: planificacionOriginal.ano,
+          mes: planificacionOriginal.mes,
+          relevancia: planificacionOriginal.relevancia,
+          esPorDefecto: false, // La nueva planificación no debería ser "por defecto"
+          tipoDePlanificacion: planificacionOriginal.tipoDePlanificacion,
+          subBloques: {
+            create: subBloquesClonados,
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      return {
+        message: 'Planificación clonada con éxito.',
+        originalId: id,
+        nuevaPlanificacion,
+      };
+    });
+  }
+
   // Obtener todas las planificaciones mensuales con paginación
   public getAllPlanificacionesMensuales(dto: PaginationDto) {
     return this.planificacionMensual.getPaginatedData(

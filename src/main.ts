@@ -13,6 +13,7 @@ async function bootstrap() {
     'http://localhost:8100',
     'http://localhost:4200',
     'https://academiamd.netlify.app',
+    'https://app.firemdacademia.com',
   ];
   app.enableCors({
     origin: [process.env.FRONT_ENDPOINT, ...allowedOrigins],

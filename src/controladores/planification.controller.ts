@@ -166,4 +166,10 @@ export class PlanificacionController {
   ) {
     return this.service.createOrUpdatePlanificacionMensual(dto);
   }
+
+  @Roles(Rol.ADMIN)
+  @Post('/planificacion-mensual/clonar/:id')
+  clonarPlanificacion(@Param('id') id: string) {
+    return this.service.clonarPlanificacionMensual(id);
+  }
 }
