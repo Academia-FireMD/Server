@@ -21,11 +21,16 @@ import {
 } from 'src/dtos/update-pregunta.dto';
 import { Roles, RolesGuard } from 'src/guards/roles.guard';
 import { PreguntasService } from 'src/servicios/preguntas.service';
+import { PrismaService } from 'src/servicios/prisma.service';
+import { modifyItemId } from 'src/utils/utils';
 
 @Controller('preguntas')
 @UseGuards(RolesGuard)
 export class PreguntasController {
-  constructor(private service: PreguntasService) {}
+  constructor(
+    private service: PreguntasService,
+    private prisma: PrismaService,
+  ) {}
 
   @Roles(Rol.ADMIN, Rol.ALUMNO)
   @Post('/update-pregunta')
@@ -65,6 +70,18 @@ export class PreguntasController {
   @Get('/:id')
   async getPregunta(@Param('id') id: string) {
     return this.service.getPregunta(id);
+  }
+
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Get('/next/:identificador')
+  async getPreguntaNext(@Param('identificador') id: string) {
+    return modifyItemId('PREGUNTA', id, 1, this.prisma);
+  }
+
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Get('/prev/:identificador')
+  async getPreguntaPrev(@Param('identificador') id: string) {
+    return modifyItemId('PREGUNTA', id, -1, this.prisma);
   }
 
   @Roles(Rol.ADMIN, Rol.ALUMNO)

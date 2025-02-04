@@ -36,6 +36,14 @@ export class PreguntasService extends PaginatedService<Pregunta> {
     });
   }
 
+  public getPreguntaByIdentificador(identificador: string) {
+    return this.prisma.pregunta.findFirst({
+      where: {
+        identificador: identificador,
+      },
+    });
+  }
+
   public async getAllPreguntasCreadasPorAlumnos(res: Response) {
     const preguntas = await this.prisma.pregunta.findMany({
       where: {

@@ -27,6 +27,8 @@ import {
   FlashcardService,
   FlashcardTestService,
 } from 'src/servicios/flashcard.service';
+import { PrismaService } from 'src/servicios/prisma.service';
+import { modifyItemId } from 'src/utils/utils';
 
 @UseGuards(RolesGuard)
 @Controller('flashcards')
@@ -34,6 +36,7 @@ export class FlashcardDataController {
   constructor(
     private readonly service: FlashcardService,
     private readonly serviceTest: FlashcardTestService,
+    private prisma: PrismaService,
   ) {}
 
   @Roles(Rol.ADMIN, Rol.ALUMNO)
@@ -173,5 +176,17 @@ export class FlashcardDataController {
   @Post('/flashcards-creados-por-alumno')
   async getAllFlashcardsCreadasPorAlumnos(@Res() res: Response) {
     return this.service.getAllFlashcardsCreadasPorAlumnos(res);
+  }
+
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Get('/next/:identificador')
+  async getPreguntaNext(@Param('identificador') id: string) {
+    return modifyItemId('FLASHCARD', id, 1, this.prisma);
+  }
+
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Get('/prev/:identificador')
+  async getPreguntaPrev(@Param('identificador') id: string) {
+    return modifyItemId('FLASHCARD', id, -1, this.prisma);
   }
 }

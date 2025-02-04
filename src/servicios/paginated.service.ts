@@ -1,5 +1,3 @@
-import { firstValueFrom, from } from 'rxjs';
-import { map } from 'rxjs/operators';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { PrismaService } from './prisma.service';
 export interface PaginatedResult<T> {
@@ -22,33 +20,26 @@ export abstract class PaginatedService<T> {
   ): Promise<PaginatedResult<T>> {
     const modelName = this.getModelName();
 
+    // Obtener el número total de elementos después del filtrado
     const count = await this.prisma[modelName].count({
       where,
     });
-    const result = await firstValueFrom(
-      from(
-        this.prisma[modelName].findMany({
-          where,
-          take: dto.take,
-          skip: dto.skip,
-          include,
-          orderBy: {
-            createdAt: 'desc',
-          },
-        }),
-      ).pipe(
-        map(
-          (data) =>
-            ({
-              data,
-              pagination: {
-                ...dto,
-                count,
-              },
-            }) as PaginatedResult<T>,
-        ),
-      ),
-    );
-    return result;
+
+    // Ajustar el `skip` dinámicamente
+    const results = await this.prisma[modelName].findMany({
+      where,
+      include,
+      orderBy: { createdAt: 'desc' }, // Ordenar antes de paginar
+      skip: count > dto.skip ? dto.skip : 0, // Si hay menos datos filtrados que `skip`, empezamos desde 0
+      take: dto.take,
+    });
+
+    return {
+      data: results,
+      pagination: {
+        ...dto,
+        count, // Número total de elementos después del filtrado
+      },
+    };
   }
 }
