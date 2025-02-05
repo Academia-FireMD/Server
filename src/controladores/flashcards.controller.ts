@@ -159,6 +159,13 @@ export class FlashcardDataController {
     return this.service.getFlashcard(id);
   }
 
+  @Roles(Rol.ALUMNO, Rol.ADMIN)
+  @Post('finalizar-test/:id')
+  async finalizarTest(@Param('id') testId: string, @Request() req) {
+    const { id } = req.user;
+    return this.service.finalizarTest(Number(testId), Number(id));
+  }
+
   @Roles(Rol.ALUMNO)
   @Post('/test-stats-by-category/')
   async getTestStatsByCategory(@Body() body: DateRangeDto, @Request() req) {

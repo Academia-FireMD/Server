@@ -709,6 +709,65 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
     return groupedFlashcards;
   }
 
+  public async finalizarTest(testId: number, usuarioId: number) {
+    const test = await this.getTestById(testId);
+    if (test.realizadorId != usuarioId)
+      throw new BadRequestException('Este test no te pertenece!');
+    return this.prisma.$transaction(async (prisma) => {
+      const notAnswered = test.flashcards.filter(
+        (flashcard) => !flashcard.respuesta,
+      );
+      await prisma.flashcardTestItem.deleteMany({
+        where: {
+          id: {
+            in: notAnswered.map((e) => e.id),
+          },
+        },
+      });
+      await prisma.flashcardTest.update({
+        where: {
+          id: testId,
+        },
+        data: {
+          status: 'FINALIZADO',
+        },
+      });
+      return test;
+    });
+
+    // return this.prisma.$transaction(async (prisma) => {
+    //   test.preguntas.forEach((pregunta, index) => {
+    //     if (!respuestasIndex.includes(index))
+    //       preguntasSinResponder.push(pregunta);
+    //   });
+    //   await firstValueFrom(
+    //     forkJoin(
+    //       preguntasSinResponder.map((pregunta) => {
+    //         return prisma.respuesta.create({
+    //           data: {
+    //             testId,
+    //             preguntaId: pregunta.id,
+    //             respuestaDada: null,
+    //             esCorrecta: false,
+    //             estado: 'OMITIDA',
+    //             seguridad: SeguridadAlResponder.CIEN_POR_CIENTO,
+    //           },
+    //         });
+    //       }),
+    //     ),
+    //   );
+    //   const testRes = await prisma.test.update({
+    //     where: {
+    //       id: testId,
+    //     },
+    //     data: {
+    //       status: 'FINALIZADO',
+    //     },
+    //   });
+    //   return testRes;
+    // });
+  }
+
   public getFlashcard(flashcardDataId: string) {
     return this.prisma.flashcardData.findFirst({
       where: {
