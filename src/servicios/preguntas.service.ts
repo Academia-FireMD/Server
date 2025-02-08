@@ -117,6 +117,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
       },
     });
     if (!user) throw new BadRequestException('Usuario no existe!');
+
     //Auto generar identificador
     if (!dto.identificador)
       dto.identificador = await generarIdentificador(
@@ -152,6 +153,15 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         },
       });
     } else {
+      const identificadorExistente = await this.prisma.pregunta.count({
+        where: {
+          identificador: dto.identificador,
+        },
+      });
+      if (identificadorExistente > 0)
+        throw new BadRequestException(
+          `El identificador ${dto.identificador} ya existe!`,
+        );
       return this.prisma.pregunta.create({
         data: {
           identificador: dto.identificador,

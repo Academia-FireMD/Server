@@ -793,6 +793,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         id: userId,
       },
     });
+
     if (!user) throw new BadRequestException('Usuario no existe!');
     if (!dto.relevancia || dto.relevancia.length == 0)
       throw new BadRequestException('Debes seleccionar una relevancia!');
@@ -834,6 +835,15 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         },
       });
     } else {
+      const identificadorExistente = await this.prisma.flashcardData.count({
+        where: {
+          identificador: dto.identificador,
+        },
+      });
+      if (identificadorExistente > 0)
+        throw new BadRequestException(
+          `El identificador ${dto.identificador} ya existe!`,
+        );
       return this.prisma.flashcardData.create({
         data: {
           identificador: dto.identificador,

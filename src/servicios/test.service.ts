@@ -611,7 +611,7 @@ export class TestService extends PaginatedService<Test> {
     const factorPivot = await this.prisma.factor.findUnique({
       where: { id: FactorName.PREGUNTAS_MALAS_PIVOT },
     });
-
+    const factorPivote = factorPivot?.value ?? 5;
     const ultimasRespuestas = await this.prisma.respuesta.findMany({
       where: {
         test: {
@@ -622,14 +622,14 @@ export class TestService extends PaginatedService<Test> {
       orderBy: {
         createdAt: 'desc',
       },
-      take: factorPivot.value ?? 5,
+      take: factorPivote,
     });
 
     const todasCorrectas = ultimasRespuestas.every(
       (respuesta) => respuesta.esCorrecta,
     );
 
-    if (todasCorrectas && ultimasRespuestas.length === factorPivot.value) {
+    if (todasCorrectas && ultimasRespuestas.length === factorPivote) {
       // Eliminar las respuestas incorrectas de esta pregunta si todas las últimas N fueron correctas
       await this.prisma.respuesta.deleteMany({
         where: {
