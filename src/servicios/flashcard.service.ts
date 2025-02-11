@@ -478,7 +478,28 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         );
       }
 
-      flashcardsDisponibles = seleccionadas;
+      // 4) [**Nuevo**] Eliminar duplicados (por id) en 'seleccionadas'
+      const uniqueMap = new Map<number, FlashcardData>();
+      for (const fc of seleccionadas) {
+        uniqueMap.set(fc.id, fc);
+      }
+      let finalSeleccionadas = Array.from(uniqueMap.values());
+
+      // 5) Barajar (shuffle) el array finalSeleccionadas (Fisher-Yates)
+      for (let i = finalSeleccionadas.length - 1; i > 0; i--) {
+        const randomIndex = Math.floor(Math.random() * (i + 1));
+        [finalSeleccionadas[i], finalSeleccionadas[randomIndex]] = [
+          finalSeleccionadas[randomIndex],
+          finalSeleccionadas[i],
+        ];
+      }
+
+      // 6) Recortar si aún es mayor que numPreguntas
+      if (finalSeleccionadas.length > numPreguntas) {
+        finalSeleccionadas = finalSeleccionadas.slice(0, numPreguntas);
+      }
+
+      flashcardsDisponibles = finalSeleccionadas;
     }
 
     // Crear el test con las flashcards seleccionadas

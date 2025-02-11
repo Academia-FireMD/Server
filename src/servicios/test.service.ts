@@ -568,24 +568,34 @@ export class TestService extends PaginatedService<Test> {
     });
     let respuesta: Respuesta = null;
     if (!!respuestaExistente) {
-      respuesta = await this.prisma.respuesta.update({
-        where: {
-          id: respuestaExistente.id,
-        },
-        data: {
-          respuestaDada: dto.respuestaDada,
-          esCorrecta: esCorrecta,
-          estado: dto.omitida ? 'OMITIDA' : 'RESPONDIDA', // Estado dependiendo de si se omitió o no
-          seguridad: dto.seguridad ?? SeguridadAlResponder.CIEN_POR_CIENTO,
-        },
-        include: {
-          pregunta: {
-            select: {
-              respuestaCorrectaIndex: true,
+      //El usuario ha deseleccionado la respuesta
+      if (dto.respuestaDada == -1) {
+        respuesta = await this.prisma.respuesta.delete({
+          where: {
+            id: respuestaExistente.id,
+          },
+        });
+        respuesta.respuestaDada = -1;
+      } else {
+        respuesta = await this.prisma.respuesta.update({
+          where: {
+            id: respuestaExistente.id,
+          },
+          data: {
+            respuestaDada: dto.respuestaDada,
+            esCorrecta: esCorrecta,
+            estado: dto.omitida ? 'OMITIDA' : 'RESPONDIDA', // Estado dependiendo de si se omitió o no
+            seguridad: dto.seguridad ?? SeguridadAlResponder.CIEN_POR_CIENTO,
+          },
+          include: {
+            pregunta: {
+              select: {
+                respuestaCorrectaIndex: true,
+              },
             },
           },
-        },
-      });
+        });
+      }
     } else {
       respuesta = await this.prisma.respuesta.create({
         data: {
@@ -707,10 +717,10 @@ export class TestService extends PaginatedService<Test> {
         );
       }
 
-      let preguntasDisponibles: Pregunta[];
+      let preguntasDisponibles: Pregunta[] = [];
 
+      // Si es un test de repaso, tomamos solo preguntas falladas por el usuario.
       if (dto.generarTestDeRepaso) {
-        // Obtener preguntas donde el usuario ha fallado
         const fallos = await prisma.respuesta.findMany({
           where: {
             test: {
@@ -719,9 +729,7 @@ export class TestService extends PaginatedService<Test> {
             },
             esCorrecta: false,
           },
-          include: {
-            pregunta: true,
-          },
+          include: { pregunta: true },
         });
 
         if (fallos.length === 0) {
@@ -729,51 +737,86 @@ export class TestService extends PaginatedService<Test> {
             'No tienes preguntas falladas para generar un test de repaso.',
           );
         }
-
-        // Extraer las preguntas falladas
         preguntasDisponibles = fallos.map((fallo) => fallo.pregunta);
       } else {
-        if (!dto.dificultad) dto.dificultad = Dificultad.INTERMEDIO;
-        // Obtener preguntas disponibles según los filtros normales
-        if (
-          dto.dificultad == Dificultad.PRIVADAS ||
-          dto.dificultad == Dificultad.PUBLICAS
-        ) {
-          preguntasDisponibles = await prisma.pregunta.findMany({
-            where: {
-              temaId: { in: dto.temas },
-              createdById:
-                dto.dificultad == Dificultad.PRIVADAS ? userId : undefined,
-              relevancia: {
-                has: userComunidad,
-              },
-              dificultad: {
-                in:
-                  dto.dificultad == Dificultad.PRIVADAS
-                    ? [Dificultad.PRIVADAS, Dificultad.PUBLICAS]
-                    : [Dificultad.PUBLICAS],
-              },
-            },
-          });
-        } else {
-          preguntasDisponibles = await prisma.pregunta.findMany({
-            where: {
-              temaId: { in: dto.temas },
-              dificultad: {
-                notIn: [Dificultad.PRIVADAS, Dificultad.PUBLICAS],
-              },
-              relevancia: {
-                has: userComunidad,
-              },
-            },
-          });
-        }
-
-        if (preguntasDisponibles.length === 0) {
+        // dto.dificultad ahora es un array con dificultades seleccionadas por el alumno
+        if (!dto.dificultades || dto.dificultades.length === 0) {
           throw new BadRequestException(
-            'No hay preguntas disponibles para los temas seleccionados.',
+            'Debes seleccionar al menos una dificultad!',
           );
         }
+
+        // Separamos las dificultades “especiales” (PRIVADAS, PUBLICAS) de las “normales”
+        const includesPrivadas = dto.dificultades.includes(Dificultad.PRIVADAS);
+        const includesPublicas = dto.dificultades.includes(Dificultad.PUBLICAS);
+
+        // Filtramos el resto (BASICO, INTERMEDIO, DIFICIL, etc.)
+        const normalDiffs = dto.dificultades.filter(
+          (d) => d !== Dificultad.PRIVADAS && d !== Dificultad.PUBLICAS,
+        );
+
+        // 1) Si incluyeron PRIVADAS -> preguntas creadas por el usuario
+        if (includesPrivadas) {
+          const privateQuestions = await prisma.pregunta.findMany({
+            where: {
+              temaId: { in: dto.temas },
+              createdById: userId,
+              relevancia: {
+                has: userComunidad,
+              },
+              // En tu lógica original, cuando era Dificultad.PRIVADAS,
+              // incluías [PRIVADAS, PUBLICAS], así que lo respetamos:
+              dificultad: { in: [Dificultad.PRIVADAS, Dificultad.PUBLICAS] },
+            },
+          });
+          preguntasDisponibles.push(...privateQuestions);
+        }
+
+        // 2) Si incluyeron PUBLICAS -> preguntas públicas (de cualquier creador)
+        if (includesPublicas) {
+          const publicQuestions = await prisma.pregunta.findMany({
+            where: {
+              temaId: { in: dto.temas },
+              relevancia: {
+                has: userComunidad,
+              },
+              dificultad: { in: [Dificultad.PUBLICAS] },
+            },
+          });
+          preguntasDisponibles.push(...publicQuestions);
+        }
+
+        // 3) Preguntas de las “dificultades normales” (BASICO, INTERMEDIO, DIFICIL, etc.)
+        if (normalDiffs.length > 0) {
+          const normalQuestions = await prisma.pregunta.findMany({
+            where: {
+              temaId: { in: dto.temas },
+              relevancia: {
+                has: userComunidad,
+              },
+              dificultad: {
+                in: normalDiffs,
+              },
+            },
+          });
+          preguntasDisponibles.push(...normalQuestions);
+        }
+
+        // Si nada ha devuelto resultados
+        if (preguntasDisponibles.length === 0) {
+          throw new BadRequestException(
+            'No hay preguntas disponibles para los temas y dificultades seleccionados.',
+          );
+        }
+
+        // (Opcional) Elimina duplicados si existiera la posibilidad de colisión
+        const uniqueMap = new Map<number, Pregunta>();
+        for (const p of preguntasDisponibles) {
+          uniqueMap.set(p.id, p);
+        }
+        preguntasDisponibles = Array.from(uniqueMap.values());
+
+        // Finalmente barajamos y cortamos a 'numPreguntas'
         preguntasDisponibles = this.seleccionarPreguntasConShuffle(
           preguntasDisponibles,
           dto.numPreguntas,
@@ -781,7 +824,7 @@ export class TestService extends PaginatedService<Test> {
       }
 
       // Crear el test en la base de datos
-      const test = await prisma.test.create({
+      const newTest = await prisma.test.create({
         data: {
           realizadorId: userId,
           status: TestStatus.CREADO,
@@ -794,40 +837,49 @@ export class TestService extends PaginatedService<Test> {
       });
 
       // Crear las entradas en TestPregunta
-      const testPreguntasData = preguntasDisponibles
-        .slice(0, dto.numPreguntas)
-        .map((pregunta) => ({
-          testId: test.id,
-          preguntaId: pregunta.id,
-        }));
+      // Para mayor seguridad, si la lista vino más grande que numPreguntas,
+      // la cortamos en 'seleccionarPreguntasConShuffle' o aquí mismo.
+      const testPreguntasData = preguntasDisponibles.map((pregunta) => ({
+        testId: newTest.id,
+        preguntaId: pregunta.id,
+      }));
 
       await prisma.testPregunta.createMany({
         data: testPreguntasData,
       });
-      return test;
+
+      return newTest;
     });
+
     // Recuperar el test con las preguntas asociadas
     const testConPreguntas = await this.getTestById(test.id);
     return testConPreguntas;
   }
-
   private seleccionarPreguntasConShuffle(
     preguntas: Pregunta[],
     numPreguntas: number,
   ): Pregunta[] {
-    const seleccionadas: Pregunta[] = [];
-    while (seleccionadas.length < numPreguntas) {
-      const duplicadas = [...preguntas];
-      this.shuffleArray(duplicadas);
-      seleccionadas.push(...duplicadas);
+    // 1) Eliminar duplicados por ID.
+    const uniqueMap = new Map<number, Pregunta>();
+    for (const p of preguntas) {
+      uniqueMap.set(p.id, p);
     }
-    return seleccionadas.slice(0, numPreguntas);
-  }
+    let finalPreguntas = Array.from(uniqueMap.values());
 
-  private shuffleArray(array: Pregunta[]): void {
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
+    // 2) Barajar con Fisher-Yates (o tu método preferido).
+    for (let i = finalPreguntas.length - 1; i > 0; i--) {
+      const randomIndex = Math.floor(Math.random() * (i + 1));
+      [finalPreguntas[i], finalPreguntas[randomIndex]] = [
+        finalPreguntas[randomIndex],
+        finalPreguntas[i],
+      ];
     }
+
+    // 3) Recortar si hay más preguntas de las necesarias.
+    if (finalPreguntas.length > numPreguntas) {
+      finalPreguntas = finalPreguntas.slice(0, numPreguntas);
+    }
+
+    return finalPreguntas;
   }
 }

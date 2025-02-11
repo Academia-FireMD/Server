@@ -17,10 +17,14 @@ export class NewTestDto {
   )
   numPreguntas: number;
 
-  @IsEnum(Dificultad, {
-    message: 'Debes proveer una dificultad para el test.',
+  @IsArray({
+    message: 'Dificultades debe ser un array de dificultades válidas',
   })
-  dificultad: Dificultad;
+  @IsEnum(Dificultad, {
+    each: true,
+    message: 'Cada dificultad debe ser una dificultad válida.',
+  })
+  dificultades: Dificultad[];
 
   @IsArray({ message: 'Temas debe ser un array de números' })
   @IsNumber({}, { each: true, message: 'Cada tema debe ser un número' })
