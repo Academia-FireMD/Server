@@ -1,6 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { Rol } from '@prisma/client';
+import { cloneDeep } from 'lodash';
 import { PrismaService } from 'src/servicios/prisma.service';
+
 
 export const formatWithLeadingZeros = (num: number, totalLength: number) => {
   return num.toString().padStart(totalLength, '0');
@@ -11,14 +13,26 @@ export const modifyItemId = async (
   id: string,
   offset: number,
   prisma: any,
+  createNewOnNonExistent = false,
 ): Promise<string> => {
-  const parts = id.split('.'); // Separar por el punto
-  if (parts.length !== 2) {
-    throw new Error('Formato de ID inválido');
+  const lastDotIndex = id.lastIndexOf('.');
+  if (lastDotIndex === -1) {
+    throw new BadRequestException('Formato de ID inválido');
   }
 
-  const base = parts[0]; // "TEA07"
-  let itemNumber = parseInt(parts[1], 10); // "078" → 78
+  // Tomamos todo lo anterior como "base" (por ejemplo: "TI10.3")
+  const base = id.substring(0, lastDotIndex);
+
+  // Tomamos lo que hay después del último punto como itemNumberStr (por ejemplo: "038")
+  const itemNumberStr = id.substring(lastDotIndex + 1);
+
+  // Convertimos a número
+  let itemNumber = parseInt(itemNumberStr, 10);
+  if (isNaN(itemNumber)) {
+    throw new BadRequestException(
+      'Formato de ID inválido (no se pudo parsear el número)',
+    );
+  }
 
   // Modificar el número de la pregunta o flashcard
   itemNumber += offset;
@@ -26,15 +40,35 @@ export const modifyItemId = async (
   // Formatear con ceros a la izquierda
   const newId = `${base}.${itemNumber.toString().padStart(3, '0')}`;
   const prismaType = type == 'FLASHCARD' ? 'flashcardData' : 'pregunta';
+  const currentOne = await prisma[prismaType].findFirst({
+    where: { identificador: id },
+  });
   // Verificar si el nuevo identificador existe en la BD
   const exists = await prisma[prismaType].findFirst({
     where: { identificador: newId },
   });
 
   if (!exists) {
-    throw new BadRequestException(
-      `No hay más ${type.toLowerCase()}s con el identificador ${newId}`,
-    );
+    if (createNewOnNonExistent) {
+      const cloned = cloneDeep(currentOne);
+      cloned.id = undefined;
+      cloned.descripcion = '';
+      cloned.solucion = '';
+      cloned.identificador = newId;
+      if (prismaType == 'pregunta') {
+        cloned.respuestas = ['', '', '', ''];
+        cloned.respuestaCorrectaIndex = 0;
+      }
+      const res = await prisma[prismaType].create({
+        data: cloned,
+      });
+
+      return res;
+    } else {
+      throw new BadRequestException(
+        `No hay más ${type.toLowerCase()}s con el identificador ${newId}`,
+      );
+    }
   }
 
   return exists;

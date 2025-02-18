@@ -79,9 +79,21 @@ export class PreguntasController {
   }
 
   @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Get('/next-forward/:identificador')
+  async getPreguntaNextForward(@Param('identificador') id: string) {
+    return modifyItemId('PREGUNTA', id, 1, this.prisma, true);
+  }
+
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
   @Get('/prev/:identificador')
   async getPreguntaPrev(@Param('identificador') id: string) {
     return modifyItemId('PREGUNTA', id, -1, this.prisma);
+  }
+
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Get('/prev-forward/:identificador')
+  async getPreguntaPrevForward(@Param('identificador') id: string) {
+    return modifyItemId('PREGUNTA', id, -1, this.prisma, true);
   }
 
   @Roles(Rol.ADMIN, Rol.ALUMNO)

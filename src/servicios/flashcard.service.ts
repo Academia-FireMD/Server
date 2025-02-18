@@ -833,6 +833,18 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         this.prisma,
       );
     if ('id' in dto) {
+      const fallos = await this.prisma.reporteFallo.findMany({
+        where: {
+          flashcardDataId: dto.id,
+        },
+      });
+      if (fallos.length > 0) {
+        await this.prisma.reporteFallo.deleteMany({
+          where: {
+            flashcardDataId: dto.id,
+          },
+        });
+      }
       return this.prisma.flashcardData.update({
         where: {
           id: dto.id,

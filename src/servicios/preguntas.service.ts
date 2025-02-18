@@ -127,6 +127,18 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         this.prisma,
       );
     if ('id' in dto) {
+      const fallos = await this.prisma.reporteFallo.findMany({
+        where: {
+          preguntaId: dto.id,
+        },
+      });
+      if (fallos.length > 0) {
+        await this.prisma.reporteFallo.deleteMany({
+          where: {
+            preguntaId: dto.id,
+          },
+        });
+      }
       return this.prisma.pregunta.update({
         where: {
           id: dto.id,

@@ -94,6 +94,7 @@ export class ReporteFalloService extends PaginatedService<ReporteFallo> {
         ],
       },
       {
+        usuario: true,
         pregunta: {
           include: {
             tema: true,
