@@ -42,7 +42,7 @@ import {
   TestService,
 } from './servicios/test.service';
 import { UsersService } from './servicios/user.service';
-
+import { CypressService } from './servicios/cypress.ervice';
 @Module({
   imports: [
     PassportModule,
@@ -89,6 +89,7 @@ import { UsersService } from './servicios/user.service';
     EmailService,
     DocumentosService,
     CloudinaryProvider,
+    CypressService,
   ],
 })
 export class AppModule {}
