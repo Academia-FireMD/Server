@@ -271,6 +271,9 @@ model SubBloque {
   nombre      String 
   comentarios String? 
   color       String?
+  importante Boolean @default(false)
+  tiempoAviso Int?
+  notificacionEnviada Boolean @default(false)
   realizado Boolean @default(false)
   comentariosAlumno String? 
   plantillaId Int?                // Relación con PlantillaSemanal, si este sub-bloque pertenece a una plantilla semanal

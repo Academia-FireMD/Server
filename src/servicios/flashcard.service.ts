@@ -658,6 +658,13 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       status: 'FINALIZADO',
     } as any;
     if (realizadorId) where['realizadorId'] = realizadorId;
+    if (dto.temas && dto.temas.length > 0) where['flashcards'] = {
+      some: {
+        flashcard: {
+          temaId: { in: dto.temas.map(Number) }
+        }
+      }
+    }
     const flashcardTests = await this.prisma.flashcardTest.findMany({
       where,
       include: {

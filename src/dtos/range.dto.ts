@@ -6,4 +6,7 @@ export class DateRangeDto {
 
   @IsOptional()
   to?: Date;
+
+  @IsOptional()
+  temas?: Array<string>;
 }

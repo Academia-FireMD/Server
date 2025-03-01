@@ -89,6 +89,13 @@ export class CreateSubBloqueDto {
   @IsOptional()
   realizado?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  importante?: boolean;
+
+  @IsNumber()
+  @IsOptional()
+  tiempoAviso?: number;
   @IsString()
   @IsOptional()
   color?: string;

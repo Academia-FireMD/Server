@@ -672,6 +672,8 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
                 color: subBloque.color,
                 comentariosAlumno: subBloque.comentariosAlumno ?? null,
                 realizado: subBloque.realizado ?? false,
+                importante: subBloque.importante ?? false,
+                tiempoAviso: subBloque.tiempoAviso ?? null,
               },
             });
           } else {
@@ -684,6 +686,8 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
                 comentarios: subBloque.comentarios,
                 color: subBloque.color,
                 planificacionId: dto.id,
+                importante: subBloque.importante ?? false,
+                tiempoAviso: subBloque.tiempoAviso ?? null,
                 comentariosAlumno: subBloque.comentariosAlumno ?? null,
                 realizado: subBloque.realizado ?? false,
               },
@@ -729,6 +733,8 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
                 nombre: sb.nombre,
                 comentarios: sb.comentarios,
                 color: sb.color,
+                importante: sb.importante ?? false,
+                tiempoAviso: sb.tiempoAviso ?? null,
               })),
             },
           },
@@ -774,6 +780,8 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
               color: subBloque.color,
               createdAt: new Date(),
               updatedAt: new Date(),
+              importante: subBloque.importante ?? false,
+              tiempoAviso: subBloque.tiempoAviso ?? null,
             }));
           }
           const nuevaPlanificacion = await prisma.planificacionMensual.create({

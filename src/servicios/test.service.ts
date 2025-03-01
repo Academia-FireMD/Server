@@ -31,6 +31,23 @@ import { PrismaService } from './prisma.service';
 export class RespuestaPaginatedService extends PaginatedService<Respuesta> {
   constructor(protected prisma: PrismaService) {
     super(prisma);
+
+    this.prisma.test.findFirst({
+      where: {
+        testPreguntas: {
+          some: {
+            pregunta: {
+              temaId: {
+                in: [1, 2, 3]
+              }
+            }
+          }
+        }
+      },
+      include: {
+
+      }
+    })
   }
 
   protected getModelName(): string {
@@ -171,6 +188,13 @@ export class TestService extends PaginatedService<Test> {
       },
       status: TestStatus.FINALIZADO,
     } as any;
+    if (dto.temas && dto.temas.length > 0) where['testPreguntas'] = {
+      some: {
+        pregunta: {
+          temaId: { in: dto.temas.map(Number) }
+        }
+      }
+    }
     where['realizadorId'] = realizadorId;
     const tests = await this.prisma.test.findMany({
       where,

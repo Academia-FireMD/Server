@@ -18,6 +18,7 @@ import { UserController } from './controladores/user.controller';
 import { JwtStrategy } from './jwt/jwt.strategy';
 import { CloudinaryProvider } from './providers/cloudinary.provider';
 import { AuthService } from './servicios/auth.service';
+import { CypressService } from './servicios/cypress.ervice';
 import { DocumentosService } from './servicios/documents.service';
 import { EmailService } from './servicios/email.service';
 import { FactorService } from './servicios/factor.service';
@@ -26,6 +27,7 @@ import {
   FlashcardService,
   FlashcardTestService,
 } from './servicios/flashcard.service';
+import { NotificacionesService } from './servicios/notificaciones.service';
 import {
   PlanificacionMensualService,
   PlanificacionService,
@@ -42,7 +44,6 @@ import {
   TestService,
 } from './servicios/test.service';
 import { UsersService } from './servicios/user.service';
-import { CypressService } from './servicios/cypress.ervice';
 @Module({
   imports: [
     PassportModule,
@@ -90,6 +91,8 @@ import { CypressService } from './servicios/cypress.ervice';
     DocumentosService,
     CloudinaryProvider,
     CypressService,
+    NotificacionesService,
   ],
 })
-export class AppModule {}
+export class AppModule {
+}
