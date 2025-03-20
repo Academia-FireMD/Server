@@ -14,6 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Rol } from '@prisma/client';
 import { Response } from 'express'; // Esto es válido incluso si estás usando Fastify
+import { NewTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   CreatePreguntaDto,
@@ -30,7 +31,7 @@ export class PreguntasController {
   constructor(
     private service: PreguntasService,
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   @Roles(Rol.ADMIN, Rol.ALUMNO)
   @Post('/update-pregunta')
@@ -45,6 +46,13 @@ export class PreguntasController {
   @Post()
   async getAllPreguntas(@Body() body: PaginationDto) {
     return this.service.getAllPreguntas(body);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Post('/get-all-preguntas-by-filter')
+  async getAllPreguntasByFilter(@Body() body: NewTestDto, @Request() req) {
+    const { id, comunidad } = req.user;
+    return this.service.generarPreguntasTest(body, id, comunidad);
   }
 
   @Roles(Rol.ADMIN)
@@ -105,5 +113,11 @@ export class PreguntasController {
   ) {
     const { id } = req.user;
     return this.service.importarExcel(file, id);
+  }
+
+  @Roles(Rol.ADMIN)
+  @Get('/identificador/:identificador')
+  async getPreguntaByIdentificador(@Param('identificador') identificador: string) {
+    return this.service.getPreguntaByIdentificador(identificador);
   }
 }

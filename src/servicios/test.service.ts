@@ -1,15 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   Comunidad,
-  Dificultad,
   FactorName,
   Pregunta,
+  PrismaClient,
   Respuesta,
   SeguridadAlResponder,
   Tema,
   Test,
   TestPregunta,
-  TestStatus,
+  TestStatus
 } from '@prisma/client';
 import {
   firstValueFrom,
@@ -25,6 +25,7 @@ import { PaginationDto } from 'src/dtos/pagination.dto';
 import { DateRangeDto } from 'src/dtos/range.dto';
 import { RegistrarRespuestaDto } from 'src/dtos/registrar-respuesta.dto';
 import { PaginatedResult, PaginatedService } from './paginated.service';
+import { PreguntasService } from './preguntas.service';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
@@ -102,6 +103,7 @@ export class TestService extends PaginatedService<Test> {
   constructor(
     protected prisma: PrismaService,
     private paginatedService: RespuestaPaginatedService,
+    private preguntasService: PreguntasService
   ) {
     super(prisma);
   }
@@ -721,6 +723,8 @@ export class TestService extends PaginatedService<Test> {
     });
   }
 
+
+
   public async startTest(
     userId: number,
     dto: NewTestDto,
@@ -763,88 +767,7 @@ export class TestService extends PaginatedService<Test> {
         }
         preguntasDisponibles = fallos.map((fallo) => fallo.pregunta);
       } else {
-        // dto.dificultad ahora es un array con dificultades seleccionadas por el alumno
-        if (!dto.dificultades || dto.dificultades.length === 0) {
-          throw new BadRequestException(
-            'Debes seleccionar al menos una dificultad!',
-          );
-        }
-
-        // Separamos las dificultades “especiales” (PRIVADAS, PUBLICAS) de las “normales”
-        const includesPrivadas = dto.dificultades.includes(Dificultad.PRIVADAS);
-        const includesPublicas = dto.dificultades.includes(Dificultad.PUBLICAS);
-
-        // Filtramos el resto (BASICO, INTERMEDIO, DIFICIL, etc.)
-        const normalDiffs = dto.dificultades.filter(
-          (d) => d !== Dificultad.PRIVADAS && d !== Dificultad.PUBLICAS,
-        );
-
-        // 1) Si incluyeron PRIVADAS -> preguntas creadas por el usuario
-        if (includesPrivadas) {
-          const privateQuestions = await prisma.pregunta.findMany({
-            where: {
-              temaId: { in: dto.temas },
-              createdById: userId,
-              relevancia: {
-                has: userComunidad,
-              },
-              // En tu lógica original, cuando era Dificultad.PRIVADAS,
-              // incluías [PRIVADAS, PUBLICAS], así que lo respetamos:
-              dificultad: { in: [Dificultad.PRIVADAS, Dificultad.PUBLICAS] },
-            },
-          });
-          preguntasDisponibles.push(...privateQuestions);
-        }
-
-        // 2) Si incluyeron PUBLICAS -> preguntas públicas (de cualquier creador)
-        if (includesPublicas) {
-          const publicQuestions = await prisma.pregunta.findMany({
-            where: {
-              temaId: { in: dto.temas },
-              relevancia: {
-                has: userComunidad,
-              },
-              dificultad: { in: [Dificultad.PUBLICAS] },
-            },
-          });
-          preguntasDisponibles.push(...publicQuestions);
-        }
-
-        // 3) Preguntas de las “dificultades normales” (BASICO, INTERMEDIO, DIFICIL, etc.)
-        if (normalDiffs.length > 0) {
-          const normalQuestions = await prisma.pregunta.findMany({
-            where: {
-              temaId: { in: dto.temas },
-              relevancia: {
-                has: userComunidad,
-              },
-              dificultad: {
-                in: normalDiffs,
-              },
-            },
-          });
-          preguntasDisponibles.push(...normalQuestions);
-        }
-
-        // Si nada ha devuelto resultados
-        if (preguntasDisponibles.length === 0) {
-          throw new BadRequestException(
-            'No hay preguntas disponibles para los temas y dificultades seleccionados.',
-          );
-        }
-
-        // (Opcional) Elimina duplicados si existiera la posibilidad de colisión
-        const uniqueMap = new Map<number, Pregunta>();
-        for (const p of preguntasDisponibles) {
-          uniqueMap.set(p.id, p);
-        }
-        preguntasDisponibles = Array.from(uniqueMap.values());
-
-        // Finalmente barajamos y cortamos a 'numPreguntas'
-        preguntasDisponibles = this.seleccionarPreguntasConShuffle(
-          preguntasDisponibles,
-          dto.numPreguntas,
-        );
+        preguntasDisponibles = await this.preguntasService.generarPreguntasTest(dto, userId, userComunidad, prisma as PrismaClient);
       }
 
       // Crear el test en la base de datos
@@ -879,31 +802,5 @@ export class TestService extends PaginatedService<Test> {
     const testConPreguntas = await this.getTestById(test.id);
     return testConPreguntas;
   }
-  private seleccionarPreguntasConShuffle(
-    preguntas: Pregunta[],
-    numPreguntas: number,
-  ): Pregunta[] {
-    // 1) Eliminar duplicados por ID.
-    const uniqueMap = new Map<number, Pregunta>();
-    for (const p of preguntas) {
-      uniqueMap.set(p.id, p);
-    }
-    let finalPreguntas = Array.from(uniqueMap.values());
 
-    // 2) Barajar con Fisher-Yates (o tu método preferido).
-    for (let i = finalPreguntas.length - 1; i > 0; i--) {
-      const randomIndex = Math.floor(Math.random() * (i + 1));
-      [finalPreguntas[i], finalPreguntas[randomIndex]] = [
-        finalPreguntas[randomIndex],
-        finalPreguntas[i],
-      ];
-    }
-
-    // 3) Recortar si hay más preguntas de las necesarias.
-    if (finalPreguntas.length > numPreguntas) {
-      finalPreguntas = finalPreguntas.slice(0, numPreguntas);
-    }
-
-    return finalPreguntas;
-  }
 }

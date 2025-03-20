@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Comunidad, Dificultad, Pregunta } from '@prisma/client';
+import { Comunidad, Dificultad, Pregunta, PrismaClient } from '@prisma/client';
 import { Response } from 'express'; // Esto es válido incluso si estás usando Fastify
+import { NewTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   CreatePreguntaDto,
@@ -18,6 +19,122 @@ export class PreguntasService extends PaginatedService<Pregunta> {
 
   protected getModelName(): string {
     return 'pregunta';
+  }
+
+  public async generarPreguntasTest(dto: NewTestDto, userId: number, userComunidad: Comunidad, prismaArg?: PrismaClient) {
+    // dto.dificultad ahora es un array con dificultades seleccionadas por el alumno
+    const prisma = prismaArg ?? this.prisma;
+    let preguntasDisponibles: Pregunta[] = [];
+    if (!dto.dificultades || dto.dificultades.length === 0) {
+      throw new BadRequestException(
+        'Debes seleccionar al menos una dificultad!',
+      );
+    }
+
+    // Separamos las dificultades “especiales” (PRIVADAS, PUBLICAS) de las “normales”
+    const includesPrivadas = dto.dificultades.includes(Dificultad.PRIVADAS);
+    const includesPublicas = dto.dificultades.includes(Dificultad.PUBLICAS);
+
+    // Filtramos el resto (BASICO, INTERMEDIO, DIFICIL, etc.)
+    const normalDiffs = dto.dificultades.filter(
+      (d) => d !== Dificultad.PRIVADAS && d !== Dificultad.PUBLICAS,
+    );
+
+    // 1) Si incluyeron PRIVADAS -> preguntas creadas por el usuario
+    if (includesPrivadas) {
+      const privateQuestions = await prisma.pregunta.findMany({
+        where: {
+          temaId: { in: dto.temas },
+          createdById: userId,
+          relevancia: {
+            has: userComunidad,
+          },
+          // En tu lógica original, cuando era Dificultad.PRIVADAS,
+          // incluías [PRIVADAS, PUBLICAS], así que lo respetamos:
+          dificultad: { in: [Dificultad.PRIVADAS, Dificultad.PUBLICAS] },
+        },
+      });
+      preguntasDisponibles.push(...privateQuestions);
+    }
+
+    // 2) Si incluyeron PUBLICAS -> preguntas públicas (de cualquier creador)
+    if (includesPublicas) {
+      const publicQuestions = await prisma.pregunta.findMany({
+        where: {
+          temaId: { in: dto.temas },
+          relevancia: {
+            has: userComunidad,
+          },
+          dificultad: { in: [Dificultad.PUBLICAS] },
+        },
+      });
+      preguntasDisponibles.push(...publicQuestions);
+    }
+
+    // 3) Preguntas de las “dificultades normales” (BASICO, INTERMEDIO, DIFICIL, etc.)
+    if (normalDiffs.length > 0) {
+      const normalQuestions = await prisma.pregunta.findMany({
+        where: {
+          temaId: { in: dto.temas },
+          relevancia: {
+            has: userComunidad,
+          },
+          dificultad: {
+            in: normalDiffs,
+          },
+        },
+      });
+      preguntasDisponibles.push(...normalQuestions);
+    }
+
+    // Si nada ha devuelto resultados
+    if (preguntasDisponibles.length === 0) {
+      throw new BadRequestException(
+        'No hay preguntas disponibles para los temas y dificultades seleccionados.',
+      );
+    }
+
+    // (Opcional) Elimina duplicados si existiera la posibilidad de colisión
+    const uniqueMap = new Map<number, Pregunta>();
+    for (const p of preguntasDisponibles) {
+      uniqueMap.set(p.id, p);
+    }
+    preguntasDisponibles = Array.from(uniqueMap.values());
+
+    // Finalmente barajamos y cortamos a 'numPreguntas'
+    preguntasDisponibles = this.seleccionarPreguntasConShuffle(
+      preguntasDisponibles,
+      dto.numPreguntas,
+    );
+    return preguntasDisponibles;
+  }
+
+  private seleccionarPreguntasConShuffle(
+    preguntas: Pregunta[],
+    numPreguntas: number,
+  ): Pregunta[] {
+    // 1) Eliminar duplicados por ID.
+    const uniqueMap = new Map<number, Pregunta>();
+    for (const p of preguntas) {
+      uniqueMap.set(p.id, p);
+    }
+    let finalPreguntas = Array.from(uniqueMap.values());
+
+    // 2) Barajar con Fisher-Yates (o tu método preferido).
+    for (let i = finalPreguntas.length - 1; i > 0; i--) {
+      const randomIndex = Math.floor(Math.random() * (i + 1));
+      [finalPreguntas[i], finalPreguntas[randomIndex]] = [
+        finalPreguntas[randomIndex],
+        finalPreguntas[i],
+      ];
+    }
+
+    // 3) Recortar si hay más preguntas de las necesarias.
+    if (finalPreguntas.length > numPreguntas) {
+      finalPreguntas = finalPreguntas.slice(0, numPreguntas);
+    }
+
+    return finalPreguntas;
   }
 
   public deletePregunta(preguntaId: string) {

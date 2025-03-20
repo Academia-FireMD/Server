@@ -29,6 +29,7 @@ enum Dificultad {
   DIFICIL
   PRIVADAS
   PUBLICAS
+  EXAMEN
 }
 
 enum SeguridadAlResponder {
@@ -49,25 +50,38 @@ enum TestStatus {
   FINALIZADO
 }
 
+enum EstadoExamen {
+  BORRADOR
+  PUBLICADO
+  ARCHIVADO
+}
+
+enum TipoAcceso {
+  PUBLICO
+  RESTRINGIDO
+  SIMULACRO
+}
+
 model Test {
-  id            Int            @id @default(autoincrement())
-  testPreguntas TestPregunta[]
-  realizador    Usuario        @relation(fields: [realizadorId], references: [id], onDelete: Cascade)
-  realizadorId  Int
-  status        TestStatus     @default(CREADO)
-  respuestas    Respuesta[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  duration      Int?
-  endsAt        DateTime?
-  esDeRepaso    Boolean        @default(false)
+  id               Int                @id @default(autoincrement())
+  testPreguntas    TestPregunta[]
+  realizador       Usuario            @relation(fields: [realizadorId], references: [id], onDelete: Cascade)
+  realizadorId     Int
+  status           TestStatus         @default(CREADO)
+  respuestas       Respuesta[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  duration         Int?
+  endsAt           DateTime?
+  esDeRepaso       Boolean            @default(false)
+  Examen           Examen?
 }
 
 model Pregunta {
   id                     Int                   @id @default(autoincrement())
   identificador          String                @unique
   relevancia             Comunidad[]
-  dificultad             Dificultad @default(INTERMEDIO)
+  dificultad             Dificultad            @default(INTERMEDIO)
   tema                   Tema                  @relation(fields: [temaId], references: [id], onDelete: Cascade)
   temaId                 Int
   descripcion            String
@@ -81,10 +95,10 @@ model Pregunta {
   Respuesta              Respuesta[]
   Feedback               Feedback[]
   ReporteFallo           ReporteFallo[]
-  createdBy Usuario? @relation("PreguntaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  createdById Int?
-  
-  updatedBy Usuario? @relation("PreguntaUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdBy              Usuario?              @relation("PreguntaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById            Int?
+
+  updatedBy   Usuario? @relation("PreguntaUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   updatedById Int?
 }
 
@@ -123,7 +137,7 @@ model FlashcardData {
   id                 Int                  @id @default(autoincrement())
   identificador      String               @unique
   relevancia         Comunidad[]
-  dificultad         Dificultad @default(INTERMEDIO)
+  dificultad         Dificultad           @default(INTERMEDIO)
   tema               Tema                 @relation(fields: [temaId], references: [id], onDelete: Cascade)
   temaId             Int
   descripcion        String
@@ -134,10 +148,10 @@ model FlashcardData {
   ReporteFallo       ReporteFallo[]
   FlashcardTestItem  FlashcardTestItem[]
   FlashcardRespuesta FlashcardRespuesta[]
-  createdBy Usuario? @relation("FlashcardCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  createdById Int?
-  
-  updatedBy Usuario? @relation("FlashcardUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdBy          Usuario?             @relation("FlashcardCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById        Int?
+
+  updatedBy   Usuario? @relation("FlashcardUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   updatedById Int?
 }
 
@@ -158,12 +172,15 @@ model Tema {
 }
 
 model TestPregunta {
-  id         Int      @id @default(autoincrement())
-  test       Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
-  testId     Int
-  pregunta   Pregunta @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
-  preguntaId Int
-  createdAt  DateTime @default(now())
+  id              Int               @id @default(autoincrement())
+  test            Test              @relation(fields: [testId], references: [id], onDelete: Cascade)
+  testId          Int
+  pregunta        Pregunta          @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  preguntaId      Int
+  orden     Int      @default(0)
+  createdAt       DateTime          @default(now())
+  deReserva             Boolean               @default(false)
+
 }
 
 enum EstadoPregunta {
@@ -173,59 +190,63 @@ enum EstadoPregunta {
 }
 
 model Respuesta {
-  id            Int                   @id @default(autoincrement())
-  test          Test                  @relation(fields: [testId], references: [id], onDelete: Cascade)
-  testId        Int
-  pregunta      Pregunta              @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
-  preguntaId    Int
-  respuestaDada Int?
-  indicePregunta Int @default(0)
-  esCorrecta    Boolean
-  seguridad     SeguridadAlResponder? @default(CIEN_POR_CIENTO)
-  estado        EstadoPregunta        @default(NO_RESPONDIDA) // Estado de la respuesta
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  id             Int                   @id @default(autoincrement())
+  test           Test                  @relation(fields: [testId], references: [id], onDelete: Cascade)
+  testId         Int
+  pregunta       Pregunta              @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  preguntaId     Int
+  respuestaDada  Int?
+  indicePregunta Int                   @default(0)
+  esCorrecta     Boolean
+  seguridad      SeguridadAlResponder? @default(CIEN_POR_CIENTO)
+  estado         EstadoPregunta        @default(NO_RESPONDIDA) // Estado de la respuesta
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 }
 
 model Usuario {
-  id                Int           @id @default(autoincrement())
-  email             String        @unique
-  contrasenya       String
-  nombre            String        @default("")
-  apellidos         String        @default("")
-  rol               Rol           @default(ALUMNO)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  validated         Boolean       @default(false)
-  tests             Test[]
-  flashcardTests    FlashcardTest[]
-  comunidad         Comunidad     @default(VALENCIA)
-  Feedback          Feedback[]
-  ReporteFallo      ReporteFallo[]
-  esTutor           Boolean       @default(false)
+  id                                 Int                        @id @default(autoincrement())
+  email                              String                     @unique
+  contrasenya                        String
+  nombre                             String                     @default("")
+  apellidos                          String                     @default("")
+  rol                                Rol                        @default(ALUMNO)
+  createdAt                          DateTime                   @default(now())
+  updatedAt                          DateTime                   @updatedAt
+  validated                          Boolean                    @default(false)
+  tests                              Test[]
+  flashcardTests                     FlashcardTest[]
+  comunidad                          Comunidad                  @default(VALENCIA)
+  Feedback                           Feedback[]
+  ReporteFallo                       ReporteFallo[]
+  esTutor                            Boolean                    @default(false)
   tipoDePlanificacionDuracionDeseada TipoDePlanificacionDeseada @default(SEIS_HORAS)
-  resetPasswordToken  String?
-  resetPasswordExpires DateTime?
-  avatarUrl String?
+  resetPasswordToken                 String?
+  resetPasswordExpires               DateTime?
+  avatarUrl                          String?
 
- // Relación tutor-alumno
+  // Relación tutor-alumno
   tutorId Int? // Clave foránea opcional
   tutor   Usuario?  @relation("TutorAlumno", fields: [tutorId], references: [id])
   alumnos Usuario[] @relation("TutorAlumno")
 
   // Relación con planificaciones mensuales a través de AsignacionAlumno
-  asignaciones AsignacionAlumno[]
-  createdPreguntas Pregunta[] @relation("PreguntaCreatedBy")
-  updatedPreguntas Pregunta[] @relation("PreguntaUpdatedBy")
+  asignaciones     AsignacionAlumno[]
+  createdPreguntas Pregunta[]         @relation("PreguntaCreatedBy")
+  updatedPreguntas Pregunta[]         @relation("PreguntaUpdatedBy")
 
   // Relación con FlashcardData
   createdFlashcards FlashcardData[] @relation("FlashcardCreatedBy")
   updatedFlashcards FlashcardData[] @relation("FlashcardUpdatedBy")
 
   // Relación con Documentos
-  documentosCreados Documento[]  @relation("DocumentosCreados") // Usuario que crea documentos
+  documentosCreados      Documento[] @relation("DocumentosCreados") // Usuario que crea documentos
   documentosActualizados Documento[] @relation("DocumentosActualizados") // Usuario que actualiza documentos
-  documentosAsignados Documento[] @relation("DocumentosAsignados") // Documentos asignados a este usuario
+  documentosAsignados    Documento[] @relation("DocumentosAsignados") // Documentos asignados a este usuario
+
+  // Nuevas relaciones
+  examenesCreados Examen[]     @relation("ExamenCreatedBy")
+  suscripcion     Suscripcion? // Cambiado de suscripciones (muchas) a suscripcion (una opcional)
 }
 
 model Feedback {
@@ -256,62 +277,60 @@ model ReporteFallo {
 }
 
 model PlanificacionBloque {
-  id                     Int                   @id @default(autoincrement())
-  identificador                 String
-  descripcion            String?
-  subBloques             SubBloque[] // Relación con SubBloques
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
+  id            Int         @id @default(autoincrement())
+  identificador String
+  descripcion   String?
+  subBloques    SubBloque[] // Relación con SubBloques
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
 
 model SubBloque {
-  id          Int                 @id @default(autoincrement())
-  horaInicio  DateTime?            // La fecha y hora de inicio del sub-bloque
-  duracion    Int
-  nombre      String 
-  comentarios String? 
-  color       String?
-  importante Boolean @default(false)
-  tiempoAviso Int?
-  notificacionEnviada Boolean @default(false)
-  realizado Boolean @default(false)
-  comentariosAlumno String? 
-  plantillaId Int?                // Relación con PlantillaSemanal, si este sub-bloque pertenece a una plantilla semanal
-  plantilla   PlantillaSemanal?   @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
-  planificacionId Int?               
-  planificacion   PlanificacionMensual?   @relation(fields: [planificacionId], references: [id], onDelete: Cascade)
-  bloqueId    Int?                // Relación opcional con PlanificacionBloque, si quieres seguir agrupándolos en bloques
-  bloque      PlanificacionBloque? @relation(fields: [bloqueId], references: [id], onDelete: Cascade)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @default(now())
+  id                  Int                   @id @default(autoincrement())
+  horaInicio          DateTime? // La fecha y hora de inicio del sub-bloque
+  duracion            Int
+  nombre              String
+  comentarios         String?
+  color               String?
+  importante          Boolean               @default(false)
+  tiempoAviso         Int?
+  notificacionEnviada Boolean               @default(false)
+  realizado           Boolean               @default(false)
+  comentariosAlumno   String?
+  plantillaId         Int? // Relación con PlantillaSemanal, si este sub-bloque pertenece a una plantilla semanal
+  plantilla           PlantillaSemanal?     @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
+  planificacionId     Int?
+  planificacion       PlanificacionMensual? @relation(fields: [planificacionId], references: [id], onDelete: Cascade)
+  bloqueId            Int? // Relación opcional con PlanificacionBloque, si quieres seguir agrupándolos en bloques
+  bloque              PlanificacionBloque?  @relation(fields: [bloqueId], references: [id], onDelete: Cascade)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @default(now())
 }
 
 model PlantillaSemanal {
-  id              Int                             @id @default(autoincrement())
-  identificador   String
-  descripcion     String?
-  subBloques      SubBloque[]                     // Relación directa con los sub-bloques o eventos específicos
-  createdAt       DateTime                        @default(now())
-  updatedAt       DateTime                        @default(now())
+  id            Int         @id @default(autoincrement())
+  identificador String
+  descripcion   String?
+  subBloques    SubBloque[] // Relación directa con los sub-bloques o eventos específicos
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @default(now())
 }
-
 
 model PlanificacionMensual {
-  id           Int                             @id @default(autoincrement())
+  id                  Int                        @id @default(autoincrement())
   identificador       String
-  descripcion  String?
-  mes          Int // Mes (1-12)
-  ano          Int // Año
-  asignada Boolean @default(false)
-  esPorDefecto Boolean @default(false)
-  relevancia Comunidad[]
+  descripcion         String?
+  mes                 Int // Mes (1-12)
+  ano                 Int // Año
+  asignada            Boolean                    @default(false)
+  esPorDefecto        Boolean                    @default(false)
+  relevancia          Comunidad[]
   tipoDePlanificacion TipoDePlanificacionDeseada @default(SEIS_HORAS)
-  subBloques   SubBloque[]                     // Relación directa con los sub-bloques o eventos específicos
-  asignacion   AsignacionAlumno? 
-  createdAt    DateTime                        @default(now())
-  updatedAt    DateTime                        @updatedAt
+  subBloques          SubBloque[] // Relación directa con los sub-bloques o eventos específicos
+  asignacion          AsignacionAlumno?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
 }
-
 
 model AsignacionAlumno {
   alumnoId        Int
@@ -324,26 +343,24 @@ model AsignacionAlumno {
 }
 
 model Documento {
-  id           Int      @id @default(autoincrement())
-  identificador String   @unique
-  descripcion  String?
-  url          String   // URL donde se hospeda el documento
-  esPublico    Boolean  @default(true) // Indica si es público o privado
+  id            Int     @id @default(autoincrement())
+  identificador String  @unique
+  descripcion   String?
+  url           String // URL donde se hospeda el documento
+  esPublico     Boolean @default(true) // Indica si es público o privado
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
-  createdBy Usuario?  @relation("DocumentosCreados", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   Usuario? @relation("DocumentosCreados", fields: [createdById], references: [id], onDelete: SetNull)
   createdById Int?
-  
-  updatedBy Usuario? @relation("DocumentosActualizados", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  updatedBy   Usuario? @relation("DocumentosActualizados", fields: [updatedById], references: [id], onDelete: SetNull)
   updatedById Int?
-  
+
   asignadoA Usuario? @relation("DocumentosAsignados", fields: [usuarioId], references: [id], onDelete: SetNull)
   usuarioId Int?
 }
-
-
 
 enum FactorName {
   PREGUNTAS_MALAS_PIVOT
@@ -358,4 +375,56 @@ enum FactorName {
 model Factor {
   id    FactorName @id
   value Int
+}
+
+model Examen {
+  id                       Int          @id @default(autoincrement())
+  test                     Test         @relation(fields: [testId], references: [id], onDelete: Cascade)
+  testId                   Int          @unique // Relación 1:1 con Test
+  titulo                   String
+  descripcion              String?
+  estado                   EstadoExamen @default(BORRADOR)
+  tipoAcceso               TipoAcceso   @default(PUBLICO)
+  codigoAcceso             String? // Para simulacros con código de acceso
+  fechaActivacion          DateTime? // Desde cuándo los alumnos pueden verlo
+  fechaSolucion            DateTime? // Desde cuándo pueden ver las respuestas
+  relevancia               Comunidad[] // Comunidades para las que es relevante
+  consideracionesGenerales String? // Texto para incluir en el documento exportado
+
+  // Relaciones con usuarios
+  createdBy   Usuario? @relation("ExamenCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model Suscripcion {
+  id          Int       @id @default(autoincrement())
+  usuario     Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId   Int       @unique // Añadido @unique para garantizar relación 1:1
+  tipo        String // "PRO", "NORMAL", "INDIVIDUAL"
+  fechaInicio DateTime  @default(now())
+  fechaFin    DateTime?
+
+  // Para suscripciones individuales a exámenes
+  examenId Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UsuarioExterno {
+  id              Int      @id @default(autoincrement())
+  nombreUsuario   String
+  nombreCompleto  String
+  email           String
+  testId          Int // Examen al que tiene acceso
+  codigoAcceso    String // Código único para acceder
+  fechaAcceso     DateTime @default(now())
+  fechaExpiracion DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
