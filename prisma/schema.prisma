@@ -74,7 +74,9 @@ model Test {
   duration         Int?
   endsAt           DateTime?
   esDeRepaso       Boolean            @default(false)
-  Examen           Examen?
+  ExamenRealizado  Examen?            @relation("TestsRealizados", fields: [examenId], references: [id])
+  examenId         Int?
+  ExamenOriginal   Examen?            @relation("TestOriginal")
 }
 
 model Pregunta {
@@ -97,7 +99,7 @@ model Pregunta {
   ReporteFallo           ReporteFallo[]
   createdBy              Usuario?              @relation("PreguntaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdById            Int?
-
+  
   updatedBy   Usuario? @relation("PreguntaUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   updatedById Int?
 }
@@ -379,8 +381,8 @@ model Factor {
 
 model Examen {
   id                       Int          @id @default(autoincrement())
-  test                     Test         @relation(fields: [testId], references: [id], onDelete: Cascade)
-  testId                   Int          @unique // Relación 1:1 con Test
+  test                     Test         @relation("TestOriginal", fields: [testId], references: [id])
+  testId                   Int          @unique
   titulo                   String
   descripcion              String?
   estado                   EstadoExamen @default(BORRADOR)
@@ -389,7 +391,6 @@ model Examen {
   fechaActivacion          DateTime? // Desde cuándo los alumnos pueden verlo
   fechaSolucion            DateTime? // Desde cuándo pueden ver las respuestas
   relevancia               Comunidad[] // Comunidades para las que es relevante
-  consideracionesGenerales String? // Texto para incluir en el documento exportado
 
   // Relaciones con usuarios
   createdBy   Usuario? @relation("ExamenCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -397,14 +398,22 @@ model Examen {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relación con Tests (realizados por alumnos)
+  tests     Test[]   @relation("TestsRealizados")
 }
 
+enum SuscripcionTipo {
+  PRO
+  NORMAL
+  INDIVIDUAL
+}
 
 model Suscripcion {
   id          Int       @id @default(autoincrement())
   usuario     Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId   Int       @unique // Añadido @unique para garantizar relación 1:1
-  tipo        String // "PRO", "NORMAL", "INDIVIDUAL"
+  tipo        SuscripcionTipo
   fechaInicio DateTime  @default(now())
   fechaFin    DateTime?
 

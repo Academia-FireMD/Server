@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { EstadoExamen, Examen, TestStatus, TipoAcceso } from '@prisma/client';
+import { Dificultad, EstadoExamen, Examen, Rol, TestStatus, TipoAcceso } from '@prisma/client';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { AlignmentType, BorderStyle, Document, HeadingLevel, ImageRun, Packer, Paragraph, Table, TableCell, TableRow, TextRun, UnderlineType, WidthType } from 'docx';
@@ -8,6 +8,7 @@ import * as MarkdownIt from 'markdown-it';
 import * as path from 'path';
 import { NewExamenDto } from 'src/dtos/nex-examen.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
+import { generarIdentificador } from 'src/utils/utils';
 import { PaginatedResult, PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
 import { TestService } from './test.service';
@@ -70,13 +71,10 @@ export class ExamenService extends PaginatedService<Examen> {
             typographer: true
         });
 
-        // Convertir markdown a HTML para descripción y consideraciones
         const descripcionHtml = md.render(examen.descripcion || '');
-        const consideracionesHtml = md.render(examen.consideracionesGenerales || '');
 
         // Convertir HTML a elementos de documento Word
         const descripcionParagraphs = await this.htmlToDocxElements(descripcionHtml);
-        const consideracionesParagraphs = await this.htmlToDocxElements(consideracionesHtml);
 
         // Crear el documento
         const doc = new Document({
@@ -99,17 +97,6 @@ export class ExamenService extends PaginatedService<Examen> {
                             text: '',
                             spacing: {
                                 after: 200
-                            }
-                        })
-                    ] : []),
-
-                    // Consideraciones generales (si existen)
-                    ...(examen.consideracionesGenerales ? [
-                        ...consideracionesParagraphs,
-                        new Paragraph({
-                            text: '',
-                            spacing: {
-                                after: 400
                             }
                         })
                     ] : []),
@@ -164,6 +151,56 @@ export class ExamenService extends PaginatedService<Examen> {
 
         const buffer = await Packer.toBuffer(doc);
         return { buffer, filename };
+    }
+
+    public async addPreguntasToAcademia(examenId: number) {
+        return this.prisma.$transaction(async (tx) => {
+            const examen = await tx.examen.findUnique({
+                where: { id: examenId },
+                include: { test: { include: { testPreguntas: { include: { pregunta: true } } } } }
+            });
+
+            const preguntas = examen?.test.testPreguntas.map(tp => tp.pregunta);
+
+            if (!preguntas) throw new NotFoundException('No se encontraron preguntas en el examen');
+
+            const preguntasExamen = preguntas.filter(p => {
+                const identificadorFirstPart = p.identificador.split(".")[0];
+                const lastCharacter = identificadorFirstPart[identificadorFirstPart.length - 1];
+                return lastCharacter === "E";
+            });
+
+            if (!preguntasExamen.length) throw new NotFoundException('No se encontraron preguntas con identificador "E" en el examen');
+
+            // Crear un nuevo array con las preguntas modificadas, sin el id
+            const preguntasParaCrear = await Promise.all(preguntasExamen.map(async (pregunta) => {
+                const { id, dificultad, ...preguntaSinId } = pregunta; // Desestructuramos para excluir el id
+                return {
+                    ...preguntaSinId,
+                    dificultad: Dificultad.INTERMEDIO,
+                    identificador: await generarIdentificador(Rol.ADMIN, "PREGUNTA", pregunta.temaId, tx as any)
+                };
+            }));
+            let numeroAnyadidas = 0;
+            let numeroNoAnyadidas = 0;
+            for (let i = 0; i < preguntasParaCrear.length; i++) {
+                const preguntaParaCrear = preguntasParaCrear[i];
+                try {
+                    await tx.pregunta.create({
+                        data: preguntaParaCrear
+                    });
+                    numeroAnyadidas++;
+                } catch (error) {
+                    numeroNoAnyadidas++;
+                }
+
+            }
+
+            return {
+                message: `Se han añadido ${numeroAnyadidas} preguntas a la academia, ${numeroNoAnyadidas} preguntas ya existían`,
+                preguntas: preguntasExamen
+            }
+        });
     }
 
     // Método mejorado para convertir HTML a elementos de documento Word
@@ -566,6 +603,16 @@ export class ExamenService extends PaginatedService<Examen> {
 
     // Crear un nuevo examen (solo para administradores)
     public async createExamen(dto: NewExamenDto, creadorId: number) {
+        if (!dto.relevancia || dto.relevancia.length == 0) {
+            throw new BadRequestException("Debes seleccionar al menos una relevancia");
+        }
+        if (!dto.titulo) {
+            throw new BadRequestException("Debes introducir un título");
+        }
+        if (!dto.descripcion) {
+            throw new BadRequestException("Debes introducir una descripción");
+        }
+
         // Primero creamos un test vacío que se asociará al examen
         const test = await this.prisma.test.create({
             data: {
@@ -596,7 +643,6 @@ export class ExamenService extends PaginatedService<Examen> {
                 fechaActivacion: dto.fechaActivacion ? new Date(dto.fechaActivacion) : null,
                 fechaSolucion: dto.fechaSolucion ? new Date(dto.fechaSolucion) : null,
                 relevancia: dto.relevancia || [],
-                consideracionesGenerales: dto.consideracionesGenerales,
                 createdBy: {
                     connect: { id: creadorId },
                 },
@@ -623,23 +669,36 @@ export class ExamenService extends PaginatedService<Examen> {
             },
         });
     }
-    // Obtener todos los exámenes disponibles para un usuario
-    public async getExamenesDisponibles(userId: number) {
-        // Verificar si el usuario tiene una suscripción activa
-        const suscripcion = await this.prisma.suscripcion.findFirst({
+
+    private obtenerSuscripcion(userId: number) {
+        return this.prisma.suscripcion.findFirst({
             where: {
                 usuarioId: userId,
-                fechaFin: {
-                    gt: new Date(),
-                },
-            },
+                OR: [
+                    {
+                        fechaFin: {
+                            gt: new Date()
+                        }
+                    },
+                    {
+                        fechaFin: {
+                            equals: null
+                        }
+                    }
+                ]
+            }
         });
+    }
+
+    // Obtener todos los exámenes disponibles para un usuario
+    public async getExamenesDisponibles(userId: number, dto: PaginationDto) {
+        // Verificar si el usuario tiene una suscripción activa
+        const suscripcion = await this.obtenerSuscripcion(userId);
 
         if (!suscripcion) {
             throw new BadRequestException('No tienes una suscripción activa');
         }
 
-        // Obtener exámenes disponibles según el tipo de suscripción
         const now = new Date();
 
         // Filtro base para exámenes disponibles (activados y publicados)
@@ -648,23 +707,25 @@ export class ExamenService extends PaginatedService<Examen> {
             fechaActivacion: {
                 lte: now,
             },
+            ...dto.where, // Incluir filtros adicionales del dto
         };
 
         // Si es una suscripción individual, solo mostrar ese examen específico
         if (suscripcion.tipo === 'INDIVIDUAL' && suscripcion.examenId) {
-            return this.prisma.examen.findMany({
-                where: {
+            return this.getPaginatedData(
+                dto,
+                {
                     id: suscripcion.examenId,
                     ...baseWhere,
                 },
-                include: {
+                {
                     test: {
                         select: {
                             duration: true,
                         },
                     },
-                },
-            });
+                }
+            );
         }
 
         // Para suscripciones PRO o NORMAL, mostrar todos los exámenes disponibles
@@ -673,19 +734,21 @@ export class ExamenService extends PaginatedService<Examen> {
             ? {}
             : { tipoAcceso: TipoAcceso.PUBLICO };
 
-        return this.prisma.examen.findMany({
-            where: {
+        return this.getPaginatedData(
+            dto,
+            {
                 ...baseWhere,
                 ...tipoAccesoFilter,
             },
-            include: {
+            {
                 test: {
                     select: {
+                        id: true,
                         duration: true,
                     },
                 },
-            },
-        });
+            }
+        );
     }
 
     // Iniciar un examen para un usuario
@@ -702,33 +765,15 @@ export class ExamenService extends PaginatedService<Examen> {
             throw new BadRequestException('Examen no encontrado');
         }
 
-        // Verificar si el usuario tiene una suscripción válida para este examen
-        const suscripcion = await this.prisma.suscripcion.findFirst({
-            where: {
-                usuarioId: userId,
-                fechaFin: {
-                    gt: new Date(),
-                },
-                OR: [
-                    { tipo: { in: ['PRO'] } },
-                    {
-                        tipo: 'NORMAL',
-                        examenId: examenId,
-                        AND: {
-                            OR: [
-                                { examenId: null },
-                                {
-                                    examenId: examenId,
-                                    AND: { id: examenId }
-                                }
-                            ]
-                        }
-                    },
-                ],
-            },
-        });
+        const suscripcion = await this.obtenerSuscripcion(userId);
 
         if (!suscripcion) {
+            throw new BadRequestException('No tienes una suscripción activa');
+        }
+
+        const tieneAcceso = suscripcion.tipo == 'PRO' || (suscripcion.tipo == 'NORMAL' && suscripcion.examenId == examenId);
+
+        if (!tieneAcceso) {
             throw new BadRequestException('No tienes acceso a este examen');
         }
 
@@ -738,26 +783,13 @@ export class ExamenService extends PaginatedService<Examen> {
             throw new BadRequestException('Este examen aún no está disponible');
         }
 
-        // Verificar si el usuario ya ha iniciado este examen
-        const testExistente = await this.prisma.test.findFirst({
-            where: {
-                realizadorId: userId,
-                Examen: {
-                    id: examenId,
-                },
-            },
-        });
-
-        if (testExistente) {
-            throw new BadRequestException('Ya has iniciado este examen');
-        }
-
         // Crear un nuevo test asociado al examen
         const newTest = await this.prisma.test.create({
             data: {
                 realizadorId: userId,
                 status: TestStatus.CREADO,
                 duration: examen.test.duration,
+                examenId: examenId,
                 endsAt: examen.test.duration ? new Date(Date.now() + examen.test.duration * 60000) : null,
             },
         });
@@ -790,25 +822,6 @@ export class ExamenService extends PaginatedService<Examen> {
         return this.testService.getTestById(newTest.id);
     }
 
-    // Obtener resultados de exámenes para un usuario
-    public async getResultadosExamenes(userId: number) {
-        return this.prisma.test.findMany({
-            where: {
-                realizadorId: userId,
-                status: TestStatus.FINALIZADO,
-                Examen: {
-                    isNot: null,
-                },
-            },
-            include: {
-                Examen: true,
-            },
-            orderBy: {
-                createdAt: 'desc',
-            },
-        });
-    }
-
     // Obtener todos los exámenes (para administradores)
     public async getAllExamenes(dto: PaginationDto) {
         return this.getPaginatedData(
@@ -817,7 +830,19 @@ export class ExamenService extends PaginatedService<Examen> {
                 ...dto.where,
             },
             {
-                test: true,
+                test: {
+                    include: {
+                        testPreguntas: {
+                            include: {
+                                pregunta: {
+                                    include: {
+                                        tema: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
                 createdBy: {
                     select: {
                         id: true,
@@ -871,7 +896,6 @@ export class ExamenService extends PaginatedService<Examen> {
                 fechaActivacion: dto.fechaActivacion ? new Date(dto.fechaActivacion) : null,
                 fechaSolucion: dto.fechaSolucion ? new Date(dto.fechaSolucion) : null,
                 relevancia: dto.relevancia || [],
-                consideracionesGenerales: dto.consideracionesGenerales,
                 test: dto.duracion ? {
                     update: {
                         duration: dto.duracion,

@@ -39,10 +39,7 @@ export class NewExamenDto {
     @IsEnum(Comunidad, { each: true })
     relevancia?: Comunidad[];
 
-    @IsString()
-    @IsOptional()
-    consideracionesGenerales?: string;
-
+  
     @IsArray()
     @IsNumber({}, { each: true })
     @IsOptional()

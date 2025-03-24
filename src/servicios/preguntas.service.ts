@@ -242,6 +242,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         'PREGUNTA',
         dto.temaId,
         this.prisma,
+        dto.dificultad == Dificultad.EXAMEN
       );
     if ('id' in dto) {
       const fallos = await this.prisma.reporteFallo.findMany({

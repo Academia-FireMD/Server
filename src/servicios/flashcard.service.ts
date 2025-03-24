@@ -12,7 +12,7 @@ import {
   Tema,
   TestStatus,
 } from '@prisma/client';
-import { firstValueFrom, from, map, mergeMap, of, toArray } from 'rxjs';
+import { firstValueFrom, from, map, mergeMap, of } from 'rxjs';
 import { NewFlashcardTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { DateRangeDto } from 'src/dtos/range.dto';
@@ -838,6 +838,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         'FLASHCARD',
         dto.temaId,
         this.prisma,
+        dto.dificultad == Dificultad.EXAMEN
       );
     if ('id' in dto) {
       const fallos = await this.prisma.reporteFallo.findMany({
@@ -1049,34 +1050,22 @@ export class FlashcardTestService extends PaginatedService<FlashcardTest> {
     ).pipe(
       mergeMap((res) => {
         if (res.data.length == 0) return of(res);
-        return this.addStatsToTest(res.data).pipe(
+        // Usar Promise.all para mantener el orden
+        return from(Promise.all(
+          res.data.map(entry => 
+            this.flashcardService.obtainFlashcardTestStats(entry.realizadorId, entry.id)
+              .then(stats => ({
+                ...entry,
+                stats,
+              }))
+          )
+        )).pipe(
           map((dataWithStats) => ({
             data: dataWithStats,
             pagination: res.pagination,
           })),
         );
       }),
-    );
-  }
-
-  public addStatsToTest(tests: Array<FlashcardTest>) {
-    return from(tests).pipe(
-      mergeMap(
-        (entry) =>
-          from(
-            this.flashcardService.obtainFlashcardTestStats(
-              entry.realizadorId,
-              entry.id,
-            ),
-          ).pipe(
-            map((stats) => ({
-              ...entry,
-              stats,
-            })),
-          ),
-        5, // Limita la concurrencia a 5 peticiones simultáneas
-      ),
-      toArray(), // Convierte el stream de observables en un array
     );
   }
 
@@ -1100,7 +1089,16 @@ export class FlashcardTestService extends PaginatedService<FlashcardTest> {
     ).pipe(
       mergeMap((res) => {
         if (res.data.length == 0) return of(res);
-        return this.addStatsToTest(res.data).pipe(
+        // Usar Promise.all para mantener el orden
+        return from(Promise.all(
+          res.data.map(entry => 
+            this.flashcardService.obtainFlashcardTestStats(entry.realizadorId, entry.id)
+              .then(stats => ({
+                ...entry,
+                stats,
+              }))
+          )
+        )).pipe(
           map((dataWithStats) => ({
             data: dataWithStats,
             pagination: res.pagination,

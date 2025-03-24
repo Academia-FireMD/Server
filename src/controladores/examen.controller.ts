@@ -1,3 +1,4 @@
+
 import {
     Body,
     Controller,
@@ -36,6 +37,12 @@ export class ExamenController {
             console.error('Error al generar el documento Word:', error);
             res.status(500).json({ message: 'Error al generar el documento Word' });
         }
+    }
+
+    @Roles(Rol.ADMIN)
+    @Post('/:id/anyadir-preguntas-academia')
+    async addPreguntasToAcademia(@Param('id') id: string) {
+        return this.service.addPreguntasToAcademia(Number(id));
     }
 
     // Endpoints para administradores
@@ -115,18 +122,18 @@ export class ExamenController {
         @Body() body: { esReserva: boolean }
     ) {
         return this.service.updatePreguntaReservaStatus(
-            Number(id), 
-            Number(preguntaId), 
+            Number(id),
+            Number(preguntaId),
             body.esReserva
         );
     }
 
     // Endpoints para alumnos
     @Roles(Rol.ALUMNO)
-    @Get('/disponibles')
-    async getExamenesDisponibles(@Request() req) {
+    @Post('/disponibles')
+    async getExamenesDisponibles(@Request() req, @Body() dto: PaginationDto) {
         const { id } = req.user;
-        return this.service.getExamenesDisponibles(Number(id));
+        return this.service.getExamenesDisponibles(Number(id), dto);
     }
 
     @Roles(Rol.ALUMNO)
@@ -136,10 +143,4 @@ export class ExamenController {
         return this.service.startExamen(Number(id), Number(userId));
     }
 
-    @Roles(Rol.ALUMNO)
-    @Get('/resultados')
-    async getResultadosExamenes(@Request() req) {
-        const { id } = req.user;
-        return this.service.getResultadosExamenes(Number(id));
-    }
 }

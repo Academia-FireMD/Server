@@ -79,6 +79,7 @@ export const generarIdentificador = async (
   type: 'FLASHCARD' | 'PREGUNTA',
   temaId: number,
   prisma: PrismaService,
+  esTipoExamen = false,
 ) => {
   const map = {
     ['FLASHCARD']: {
@@ -164,12 +165,14 @@ export const generarIdentificador = async (
   const secondChar = foundTema.categoria.charAt(0);
   const thirdChar = rol == Rol.ALUMNO ? 'A' : '';
   const forthChar = foundTema.numero;
+  const fifthChar = esTipoExamen ? 'E' : '';
   const code = await map[type][rol].obtainNextId();
   return (
     firstChar +
     secondChar +
     thirdChar +
     forthChar +
+    fifthChar +
     '.' +
     formatWithLeadingZeros(code, 3)
   );

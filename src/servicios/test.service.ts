@@ -17,8 +17,7 @@ import {
   from,
   map,
   mergeMap,
-  of,
-  toArray,
+  of
 } from 'rxjs';
 import { NewTestDto } from 'src/dtos/new-test.dto';
 import { PaginationDto } from 'src/dtos/pagination.dto';
@@ -89,6 +88,7 @@ export class RespuestaPaginatedService extends PaginatedService<Respuesta> {
 export class TestService extends PaginatedService<Test> {
   private includeQuery = {
     realizador: true,
+    ExamenRealizado: true,
     testPreguntas: {
       include: {
         pregunta: {
@@ -132,18 +132,16 @@ export class TestService extends PaginatedService<Test> {
     ).pipe(
       mergeMap((res) => {
         if (res.data.length == 0) return of(res);
-        return from(res.data).pipe(
-          mergeMap(
-            (entry) =>
-              from(this.obtainTestStats(userId, entry.id)).pipe(
-                map((stats) => ({
-                  ...entry,
-                  stats,
-                })),
-              ),
-            5, // Limita la concurrencia a 5 peticiones simultáneas
-          ),
-          toArray(),
+        // Mantener el orden original usando Promise.all
+        return from(Promise.all(
+          res.data.map(entry => 
+            this.obtainTestStats(userId, entry.id)
+              .then(stats => ({
+                ...entry,
+                stats,
+              }))
+          )
+        )).pipe(
           map((dataWithStats) => ({
             data: dataWithStats,
             pagination: res.pagination,
@@ -172,7 +170,16 @@ export class TestService extends PaginatedService<Test> {
     ).pipe(
       mergeMap((res) => {
         if (res.data.length == 0) return of(res);
-        return from(this.addStatToTests(res.data)).pipe(
+        // Usar Promise.all para mantener el orden
+        return from(Promise.all(
+          res.data.map(test => 
+            this.obtainTestStats(test.realizadorId, test.id)
+              .then(stats => ({
+                ...test,
+                stats,
+              }))
+          )
+        )).pipe(
           map((dataWithStats) => ({
             data: dataWithStats,
             pagination: res.pagination,
@@ -221,19 +228,16 @@ export class TestService extends PaginatedService<Test> {
   }
 
   private async addStatToTests(tests: Array<Test>) {
-    const res = [];
-    for (let test of tests) {
-      test = await firstValueFrom(
-        from(this.obtainTestStats(test.realizadorId, test.id)).pipe(
-          map((stats) => ({
+    // Usar Promise.all para mantener el orden
+    return Promise.all(
+      tests.map(test => 
+        this.obtainTestStats(test.realizadorId, test.id)
+          .then(stats => ({
             ...test,
             stats,
-          })),
-        ),
-      );
-      res.push(test);
-    }
-    return res;
+          }))
+      )
+    );
   }
 
   groupTestsByCategory(
