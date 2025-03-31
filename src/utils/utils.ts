@@ -3,6 +3,12 @@ import { Rol } from '@prisma/client';
 import { cloneDeep } from 'lodash';
 import { PrismaService } from 'src/servicios/prisma.service';
 
+export const formatter = new Intl.DateTimeFormat('es-ES', {
+  timeZone: 'Europe/Madrid', // Asegura que se use esta zona
+  hour: '2-digit',
+  minute: '2-digit'
+});
+
 
 export const formatWithLeadingZeros = (num: number, totalLength: number) => {
   return num.toString().padStart(totalLength, '0');

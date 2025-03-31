@@ -12,7 +12,7 @@ export class EmailService {
       console.log('Enviando email de reseteo de contraseña:', { to, resetLink });
       const msg = {
         to,
-        from: 'jarvan@academiafiremd.com',
+        from: 'info@academiafiremd.com',
         templateId: 'd-d89654461e164f858b26470a6c882d81',
         dynamicTemplateData: {
           reset_link: resetLink,
@@ -40,7 +40,7 @@ export class EmailService {
       console.log('Enviando email con datos:', { to, data });
       const msg = {
         to,
-        from: 'jarvan@academiafiremd.com', // Tu email verificado en SendGrid
+        from: 'info@academiafiremd.com', // Tu email verificado en SendGrid
         templateId: 'd-5d3bb1069e6e4ad38bd35ed2413fc9b6',
         dynamicTemplateData: {
           NombreAlumno: data.nombreAlumno,

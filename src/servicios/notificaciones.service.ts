@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { EmailService } from './email.service';
 import { PrismaService } from './prisma.service';
+import { formatter } from 'src/utils/utils';
 
 @Injectable()
 export class NotificacionesService {
@@ -58,11 +59,8 @@ export class NotificacionesService {
                             {
                                 nombreAlumno: alumno.nombre,
                                 nombreEvento: evento.nombre,
-                                fechaEvento: horaInicio.toLocaleDateString('es-ES'),
-                                horaEvento: horaInicio.toLocaleTimeString('es-ES', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                }),
+                                fechaEvento: formatter.format(horaInicio),
+                                horaEvento: formatter.format(horaInicio),
                                 comentarios: evento.comentarios || 'Sin comentarios adicionales'
                             }
                         );
