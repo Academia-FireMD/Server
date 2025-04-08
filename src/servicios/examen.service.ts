@@ -12,7 +12,6 @@ import { generarIdentificador } from 'src/utils/utils';
 import { PaginatedResult, PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
 import { TestService } from './test.service';
-
 @Injectable()
 export class ExamenService extends PaginatedService<Examen> {
     constructor(
@@ -26,7 +25,7 @@ export class ExamenService extends PaginatedService<Examen> {
         return 'examen';
     }
 
-    async generateWordDocument(examenId: number) {
+    async generateWordDocument(examenId: number, conSoluciones: boolean = false) {
         const examen = await this.prisma.examen.findUnique({
             where: { id: examenId },
             include: {
@@ -76,76 +75,158 @@ export class ExamenService extends PaginatedService<Examen> {
         // Convertir HTML a elementos de documento Word
         const descripcionParagraphs = await this.htmlToDocxElements(descripcionHtml);
 
-        // Crear el documento
-        const doc = new Document({
-            sections: [{
-                properties: {},
-                children: [
-                    // Título del examen (sin prefijo, solo el título como H1)
+        // Crear el documento con elementos iniciales
+        const docElements = [
+            // Título del examen (sin prefijo, solo el título como H1)
+            new Paragraph({
+                text: examen.titulo,
+                heading: HeadingLevel.HEADING_1,
+                spacing: {
+                    after: 200
+                }
+            }),
+        ];
+
+        // Añadir descripción si existe
+        if (examen.descripcion) {
+            docElements.push(...(descripcionParagraphs as Paragraph[]));
+            docElements.push(
+                new Paragraph({
+                    text: '',
+                    spacing: {
+                        after: 200
+                    }
+                })
+            );
+        }
+
+        // Procesar todas las preguntas
+        const preguntasElements = await Promise.all(
+            examen.test.testPreguntas.map(async (testPregunta, index) => {
+                const pregunta = testPregunta.pregunta;
+                const elements = [];
+
+                // Limpiar y normalizar el texto de la pregunta y respuestas
+                const descripcionLimpia = pregunta.descripcion.replace(/\s+/g, ' ').trim();
+
+                // Procesar cada respuesta para eliminar saltos de línea y espacios extra
+                const respuestasLimpias = pregunta.respuestas.map(r => {
+                    return r.replace(/\s+/g, ' ').trim();
+                });
+
+                // Añadir la pregunta
+                elements.push(
                     new Paragraph({
-                        text: examen.titulo,
-                        heading: HeadingLevel.HEADING_1,
+                        children: [
+                            new TextRun({
+                                text: `${index + 1}. ${descripcionLimpia}`,
+                                bold: true
+                            })
+                        ],
                         spacing: {
-                            after: 200
+                            after: 100
                         }
-                    }),
+                    })
+                );
 
-                    // Descripción (si existe)
-                    ...(examen.descripcion ? [
-                        ...descripcionParagraphs,
-                        new Paragraph({
-                            text: '',
-                            spacing: {
-                                after: 200
-                            }
-                        })
-                    ] : []),
-
-                    // Preguntas principales
-                    ...examen.test.testPreguntas.map((testPregunta, index) => {
-                        const pregunta = testPregunta.pregunta;
-
-                        // Limpiar y normalizar el texto de la pregunta y respuestas
-                        const descripcionLimpia = pregunta.descripcion.replace(/\s+/g, ' ').trim();
-
-                        // Procesar cada respuesta para eliminar saltos de línea y espacios extra
-                        const respuestasLimpias = pregunta.respuestas.map(r => {
-                            // Reemplazar cualquier combinación de espacios en blanco (incluidos saltos de línea) con un solo espacio
-                            return r.replace(/\s+/g, ' ').trim();
-                        });
-
-                        return [
+                // Añadir las respuestas
+                respuestasLimpias.forEach((respuesta, rIndex) => {
+                    const esRespuestaCorrecta = rIndex === pregunta.respuestaCorrectaIndex;
+                    
+                    if (conSoluciones && esRespuestaCorrecta) {
+                        // Para respuestas correctas en modo soluciones, crear un párrafo con fondo verde
+                        elements.push(
                             new Paragraph({
                                 children: [
                                     new TextRun({
-                                        text: `${index + 1}. ${descripcionLimpia}`,
-                                        bold: true
+                                        text: `${String.fromCharCode(97 + rIndex)}) ${respuesta}`,
+                                        bold: true,
                                     })
                                 ],
-                                spacing: {
-                                    after: 100
-                                }
-                            }),
-                            ...respuestasLimpias.map((respuesta, rIndex) =>
-                                new Paragraph({
-                                    children: [
-                                        new TextRun(`${String.fromCharCode(97 + rIndex)}) ${respuesta}`)
-                                    ],
-                                    indent: {
-                                        left: 720 // 0.5 pulgadas en twips
-                                    }
-                                })
-                            ),
-                            new Paragraph({
-                                text: '',
-                                spacing: {
-                                    after: 200
+                                indent: {
+                                    left: 720 // 0.5 pulgadas en twips
+                                },
+                                shading: {
+                                    type: "clear",
+                                    color: "auto",
+                                    fill: "92D050"
                                 }
                             })
-                        ];
-                    }).flat(),
+                        );
+                    } else {
+                        // Para respuestas normales
+                        elements.push(
+                            new Paragraph({
+                                children: [
+                                    new TextRun({
+                                        text: `${String.fromCharCode(97 + rIndex)}) ${respuesta}`,
+                                    })
+                                ],
+                                indent: {
+                                    left: 720 // 0.5 pulgadas en twips
+                                }
+                            })
+                        );
+                    }
+                });
 
-                ]
+                // Espacio después de las respuestas
+                elements.push(
+                    new Paragraph({
+                        text: '',
+                        spacing: {
+                            after: 100
+                        }
+                    })
+                );
+
+                // Si se solicitan soluciones, añadir la solución después de las respuestas
+                if (conSoluciones && pregunta.solucion) {
+                    const solucionHtml = md.render(pregunta.solucion);
+                    
+                    // Espacio antes de la solución
+                    elements.push(
+                        new Paragraph({
+                            text: '',
+                            spacing: {
+                                after: 100
+                            }
+                        })
+                    );
+                    
+                    // Convertir la solución HTML a elementos de documento Word
+                    const $ = cheerio.load(solucionHtml);
+                    const bodyElements = $('body').children().toArray();
+                    for (const element of bodyElements) {
+                        const docxElements = await this.processHtmlElement($, element, 720); // Indentación adicional
+                        elements.push(...docxElements);
+                    }
+                }
+
+                // Espacio después de la pregunta completa
+                elements.push(
+                    new Paragraph({
+                        text: '',
+                        spacing: {
+                            after: 200
+                        }
+                    })
+                );
+
+                return elements;
+            })
+        );
+
+        // Aplanar el array de arrays manualmente
+        for (const preguntaElements of preguntasElements) {
+            docElements.push(...preguntaElements);
+        }
+
+        // Crear el documento final
+        const doc = new Document({
+            sections: [{
+                properties: {},
+                children: docElements
             }]
         });
 
@@ -219,20 +300,20 @@ export class ExamenService extends PaginatedService<Examen> {
         return elements;
     }
 
-    private async processHtmlElement($: cheerio.CheerioAPI, element: any): Promise<Array<Paragraph | Table>> {
+    private async processHtmlElement($: cheerio.CheerioAPI, element: any, indentation: number = 0): Promise<Array<Paragraph | Table>> {
         const elements: Array<Paragraph | Table> = [];
         const tagName = element.tagName.toLowerCase();
 
         switch (tagName) {
             case 'p':
-                elements.push(await this.createParagraphFromElement($, element));
+                elements.push(await this.createParagraphFromElement($, element, indentation));
                 break;
 
             case 'ul':
             case 'ol':
                 $(element).children('li').each((index, li) => {
                     const prefix = tagName === 'ul' ? '• ' : `${index + 1}. `;
-                    elements.push(this.createListItemParagraph($, li, prefix));
+                    elements.push(this.createListItemParagraph($, li, prefix, indentation));
                 });
                 break;
 
@@ -248,7 +329,10 @@ export class ExamenService extends PaginatedService<Examen> {
                     new Paragraph({
                         text: $(element).text(),
                         heading: headingLevel,
-                        spacing: { after: 200 }
+                        spacing: { after: 200 },
+                        indent: {
+                            left: indentation
+                        }
                     })
                 );
                 break;
@@ -257,7 +341,7 @@ export class ExamenService extends PaginatedService<Examen> {
                 elements.push(
                     new Paragraph({
                         children: [new TextRun($(element).text())],
-                        indent: { left: 720 },
+                        indent: { left: indentation + 720 },
                         spacing: { after: 200 },
                         border: {
                             left: { style: BorderStyle.SINGLE, size: 3 }
@@ -273,7 +357,10 @@ export class ExamenService extends PaginatedService<Examen> {
                         border: {
                             bottom: { style: BorderStyle.SINGLE, size: 1 }
                         },
-                        spacing: { after: 200 }
+                        spacing: { after: 200 },
+                        indent: {
+                            left: indentation
+                        }
                     })
                 );
                 break;
@@ -288,7 +375,10 @@ export class ExamenService extends PaginatedService<Examen> {
                     elements.push(
                         new Paragraph({
                             text: $(element).text(),
-                            spacing: { after: 100 }
+                            spacing: { after: 100 },
+                            indent: {
+                                left: indentation
+                            }
                         })
                     );
                 }
@@ -298,7 +388,7 @@ export class ExamenService extends PaginatedService<Examen> {
         return elements;
     }
 
-    private async createParagraphFromElement($: cheerio.CheerioAPI, element: any): Promise<Paragraph> {
+    private async createParagraphFromElement($: cheerio.CheerioAPI, element: any, indentation: number = 0): Promise<Paragraph> {
         const children: Array<TextRun | ImageRun> = [];
 
         // Procesar nodos hijos
@@ -306,11 +396,14 @@ export class ExamenService extends PaginatedService<Examen> {
 
         return new Paragraph({
             children,
-            spacing: { after: 200 }
+            spacing: { after: 200 },
+            indent: {
+                left: indentation
+            }
         });
     }
 
-    private createListItemParagraph($: cheerio.CheerioAPI, element: any, prefix: string): Paragraph {
+    private createListItemParagraph($: cheerio.CheerioAPI, element: any, prefix: string, indentation: number = 0): Paragraph {
         const children: TextRun[] = [new TextRun({ text: prefix })];
 
         // Procesar nodos hijos (solo texto para listas por simplicidad)
@@ -319,7 +412,7 @@ export class ExamenService extends PaginatedService<Examen> {
         return new Paragraph({
             children,
             indent: { left: 360 },
-            spacing: { after: 100 }
+            spacing: { after: 100 },
         });
     }
 

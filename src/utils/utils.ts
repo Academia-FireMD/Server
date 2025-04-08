@@ -3,10 +3,17 @@ import { Rol } from '@prisma/client';
 import { cloneDeep } from 'lodash';
 import { PrismaService } from 'src/servicios/prisma.service';
 
-export const formatter = new Intl.DateTimeFormat('es-ES', {
+export const timeFormatter = new Intl.DateTimeFormat('es-ES', {
   timeZone: 'Europe/Madrid', // Asegura que se use esta zona
   hour: '2-digit',
   minute: '2-digit'
+});
+
+export const dateFormatter = new Intl.DateTimeFormat('es-ES', {
+  timeZone: 'Europe/Madrid', // Asegura que se use esta zona
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric'
 });
 
 

@@ -1,4 +1,3 @@
-
 import {
     Body,
     Controller,
@@ -25,11 +24,26 @@ export class ExamenController {
 
     @Get('download-word/:id')
     @Roles(Rol.ADMIN)
-    async downloadWord(@Param('id') id: string, @Res() res: Response) {
+    async downloadWord(
+        @Param('id') id: string,
+        @Res() res: Response,
+        @Request() req
+    ) {
         try {
-            const { buffer, filename } = await this.service.generateWordDocument(+id);
+            const conSoluciones = req.query.conSoluciones === 'true';
+            const { buffer, filename } = await this.service.generateWordDocument(+id, conSoluciones);
+            
+            // Modificar el nombre del archivo para indicar si tiene soluciones
+            const filenameParts = filename.split('.');
+            const extension = filenameParts.pop();
+            const baseFilename = filenameParts.join('.');
+            const newFilename = conSoluciones 
+                ? `${baseFilename}_con_soluciones.${extension}` 
+                : filename;
+            
             res.set({
                 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'Content-Disposition': `attachment; filename="${newFilename}"`,
                 'Content-Length': buffer.length,
             });
             res.end(buffer);

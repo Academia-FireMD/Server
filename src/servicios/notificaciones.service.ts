@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { dateFormatter, timeFormatter } from 'src/utils/utils';
 import { EmailService } from './email.service';
 import { PrismaService } from './prisma.service';
-import { formatter } from 'src/utils/utils';
 
 @Injectable()
 export class NotificacionesService {
@@ -11,7 +11,10 @@ export class NotificacionesService {
     constructor(
         private prisma: PrismaService,
         private emailService: EmailService,
-    ) { }
+    ) { 
+
+
+    }
 
     @Cron('* * * * *') // Ejecutar cada minuto
     async checkEventosParaNotificar() {
@@ -59,8 +62,8 @@ export class NotificacionesService {
                             {
                                 nombreAlumno: alumno.nombre,
                                 nombreEvento: evento.nombre,
-                                fechaEvento: formatter.format(horaInicio),
-                                horaEvento: formatter.format(horaInicio),
+                                fechaEvento: dateFormatter.format(horaInicio),
+                                horaEvento: timeFormatter.format(horaInicio),
                                 comentarios: evento.comentarios || 'Sin comentarios adicionales'
                             }
                         );

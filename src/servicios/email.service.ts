@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as sgMail from '@sendgrid/mail';
+import * as MarkdownIt from 'markdown-it';
 
 @Injectable()
 export class EmailService {
@@ -38,6 +39,17 @@ export class EmailService {
   }): Promise<any> {
     try {
       console.log('Enviando email con datos:', { to, data });
+
+      // Inicializar markdown-it con todas las opciones habilitadas
+      const md = new MarkdownIt({
+        html: true,
+        breaks: true,
+        linkify: true,
+        typographer: true
+      });
+
+      // Convertir el markdown a HTML
+      const comentariosHtml = md.render(data.comentarios || '');
       const msg = {
         to,
         from: 'info@academiafiremd.com', // Tu email verificado en SendGrid
@@ -47,7 +59,7 @@ export class EmailService {
           NombreEvento: data.nombreEvento,
           FechaEvento: data.fechaEvento,
           HoraEvento: data.horaEvento,
-          Comentarios: data.comentarios
+          Comentarios: comentariosHtml
         },
       };
 
