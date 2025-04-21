@@ -134,7 +134,7 @@ export class TestService extends PaginatedService<Test> {
         if (res.data.length == 0) return of(res);
         // Mantener el orden original usando Promise.all
         return from(Promise.all(
-          res.data.map(entry => 
+          res.data.map(entry =>
             this.obtainTestStats(userId, entry.id)
               .then(stats => ({
                 ...entry,
@@ -172,7 +172,7 @@ export class TestService extends PaginatedService<Test> {
         if (res.data.length == 0) return of(res);
         // Usar Promise.all para mantener el orden
         return from(Promise.all(
-          res.data.map(test => 
+          res.data.map(test =>
             this.obtainTestStats(test.realizadorId, test.id)
               .then(stats => ({
                 ...test,
@@ -230,7 +230,7 @@ export class TestService extends PaginatedService<Test> {
   private async addStatToTests(tests: Array<Test>) {
     // Usar Promise.all para mantener el orden
     return Promise.all(
-      tests.map(test => 
+      tests.map(test =>
         this.obtainTestStats(test.realizadorId, test.id)
           .then(stats => ({
             ...test,
@@ -417,12 +417,11 @@ export class TestService extends PaginatedService<Test> {
     return test.endsAt && new Date() > test.endsAt;
   }
 
-  public async getTestById(testId: number) {
+  public async getTestById(testId: number, userId: number) {
     const test = await this.prisma.test.findFirst({
-      where: { id: testId },
+      where: { id: testId, realizadorId: userId },
       include: {
         respuestas: true,
-
         testPreguntas: {
           include: {
             pregunta: {
@@ -517,7 +516,7 @@ export class TestService extends PaginatedService<Test> {
   }
 
   public async finalizarTest(testId: number, usuarioId: number) {
-    const test = await this.getTestById(testId);
+    const test = await this.getTestById(testId, usuarioId);
     if (test.realizadorId != usuarioId)
       throw new BadRequestException('Este test no te pertenece!');
     return this.prisma.$transaction(async (prisma) => {
@@ -803,7 +802,7 @@ export class TestService extends PaginatedService<Test> {
     });
 
     // Recuperar el test con las preguntas asociadas
-    const testConPreguntas = await this.getTestById(test.id);
+    const testConPreguntas = await this.getTestById(test.id, userId);
     return testConPreguntas;
   }
 

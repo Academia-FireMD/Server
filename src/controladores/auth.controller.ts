@@ -44,11 +44,11 @@ export class AuthController {
     if (!user) {
       throw new UnauthorizedException('Los datos no son válidos');
     }
-    if (!user.validated) {
-      throw new UnauthorizedException(
-        'El usuario no ha sido aprobado todavía.',
-      );
-    }
+    // if (!user.validated) {
+    //   throw new UnauthorizedException(
+    //     'El usuario no ha sido aprobado todavía.',
+    //   );
+    // }
     return this.authService.login(user);
   }
 

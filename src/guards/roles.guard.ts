@@ -7,14 +7,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtService } from '@nestjs/jwt';
 import { Observable } from 'rxjs';
+import { AuthService } from '../servicios/auth.service';
 export const Roles = (...roles: string[]) => SetMetadata('roles', roles);
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    private jwtService: JwtService,
+    private authService: AuthService,
   ) {}
 
   canActivate(
@@ -36,7 +36,7 @@ export class RolesGuard implements CanActivate {
     }
     let payload;
     try {
-      payload = this.jwtService.verify(token);
+      payload = this.authService.verifyToken(token);
     } catch (error) {
       const errorResult =
         error.name == 'TokenExpiredError' ? 'La sesión ha expirado' : error;
@@ -44,7 +44,8 @@ export class RolesGuard implements CanActivate {
     }
     const userRole = payload.rol;
     const allowAccess = requiredRoles.includes(userRole);
-    if (!allowAccess) throw new ForbiddenException('Acceso denegado');
+    if (!allowAccess || userRole == 'SIN_APROBACION')
+      throw new ForbiddenException('Acceso denegado');
     request.user = {
       id: payload.sub,
       email: payload.email,

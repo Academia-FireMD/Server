@@ -8,6 +8,7 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Rol } from '@prisma/client';
 import { FeedbackDto } from 'src/dtos/feedback.dto';
 import { NewTestDto } from 'src/dtos/new-test.dto';
@@ -15,6 +16,7 @@ import { PaginationDto } from 'src/dtos/pagination.dto';
 import { DateRangeDto } from 'src/dtos/range.dto';
 import { RegistrarRespuestaDto } from 'src/dtos/registrar-respuesta.dto';
 import { Roles, RolesGuard } from 'src/guards/roles.guard';
+import { AuthService } from 'src/servicios/auth.service';
 import { FeedbackService } from 'src/servicios/feedback.service';
 import { TestService } from 'src/servicios/test.service';
 
@@ -24,6 +26,8 @@ export class TestController {
   constructor(
     private service: TestService,
     private feedback: FeedbackService,
+    private jwtService: JwtService,
+    private authService: AuthService,
   ) {}
 
   @Roles(Rol.ALUMNO)
@@ -39,10 +43,11 @@ export class TestController {
     return this.service.getAllTestsAdmin(body);
   }
 
-  @Roles(Rol.ALUMNO, Rol.ADMIN)
   @Get('/por-id/:id')
-  async getTestById(@Param('id') id: string) {
-    return this.service.getTestById(Number(id));
+  async getTestById(@Param('id') id: string, @Request() req) {
+    const token = req.headers.authorization?.split(' ')[1];
+    const payload = this.authService.verifyToken(token);
+    return this.service.getTestById(Number(id), Number(payload.sub));
   }
 
   @Roles(Rol.ALUMNO)
@@ -67,18 +72,18 @@ export class TestController {
     return this.service.getFinishedTestsByUserId(Number(id));
   }
 
-  @Roles(Rol.ALUMNO)
   @Post('registrar-respuesta')
   async registrarRespuesta(@Body() dto: RegistrarRespuestaDto, @Request() req) {
-    const { id } = req.user;
-    return this.service.registrarRespuesta(dto, id);
+    const token = req.headers.authorization?.split(' ')[1];
+    const payload = this.authService.verifyToken(token);
+    return this.service.registrarRespuesta(dto, Number(payload.sub));
   }
 
-  @Roles(Rol.ALUMNO, Rol.ADMIN)
   @Post('finalizar-test/:id')
   async finalizarTest(@Param('id') testId: string, @Request() req) {
-    const { id } = req.user;
-    return this.service.finalizarTest(Number(testId), Number(id));
+    const token = req.headers.authorization?.split(' ')[1];
+    const payload = this.authService.verifyToken(token);
+    return this.service.finalizarTest(Number(testId), Number(payload.sub));
   }
 
   @Roles(Rol.ALUMNO)

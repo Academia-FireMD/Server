@@ -4,6 +4,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { AlignmentType, BorderStyle, Document, HeadingLevel, ImageRun, Packer, Paragraph, Table, TableCell, TableRow, TextRun, UnderlineType, WidthType } from 'docx';
 import * as fs from 'fs';
+import { cloneDeep } from 'lodash';
 import * as MarkdownIt from 'markdown-it';
 import * as path from 'path';
 import { NewExamenDto } from 'src/dtos/nex-examen.dto';
@@ -12,6 +13,22 @@ import { generarIdentificador } from 'src/utils/utils';
 import { PaginatedResult, PaginatedService } from './paginated.service';
 import { PrismaService } from './prisma.service';
 import { TestService } from './test.service';
+
+// Definir una interfaz para el tipo de resultado
+interface ResultadoSimulacro {
+    testId: number;
+    fechaRealizacion: Date;
+    usuario: any;
+    estadisticas: {
+        totalPreguntas: number;
+        correctas: number;
+        incorrectas: number;
+        nota: number;
+        detalles: any;
+    };
+    posicion?: number; // Añadir la propiedad posicion como opcional
+}
+
 @Injectable()
 export class ExamenService extends PaginatedService<Examen> {
     constructor(
@@ -100,126 +117,56 @@ export class ExamenService extends PaginatedService<Examen> {
             );
         }
 
-        // Procesar todas las preguntas
-        const preguntasElements = await Promise.all(
-            examen.test.testPreguntas.map(async (testPregunta, index) => {
-                const pregunta = testPregunta.pregunta;
-                const elements = [];
+        // Separar preguntas normales y de reserva
+        const preguntasNormales = examen.test.testPreguntas.filter(tp => !tp.deReserva);
+        const preguntasReserva = examen.test.testPreguntas.filter(tp => tp.deReserva);
 
-                // Limpiar y normalizar el texto de la pregunta y respuestas
-                const descripcionLimpia = pregunta.descripcion.replace(/\s+/g, ' ').trim();
-
-                // Procesar cada respuesta para eliminar saltos de línea y espacios extra
-                const respuestasLimpias = pregunta.respuestas.map(r => {
-                    return r.replace(/\s+/g, ' ').trim();
-                });
-
-                // Añadir la pregunta
-                elements.push(
-                    new Paragraph({
-                        children: [
-                            new TextRun({
-                                text: `${index + 1}. ${descripcionLimpia}`,
-                                bold: true
-                            })
-                        ],
-                        spacing: {
-                            after: 100
-                        }
-                    })
-                );
-
-                // Añadir las respuestas
-                respuestasLimpias.forEach((respuesta, rIndex) => {
-                    const esRespuestaCorrecta = rIndex === pregunta.respuestaCorrectaIndex;
-                    
-                    if (conSoluciones && esRespuestaCorrecta) {
-                        // Para respuestas correctas en modo soluciones, crear un párrafo con fondo verde
-                        elements.push(
-                            new Paragraph({
-                                children: [
-                                    new TextRun({
-                                        text: `${String.fromCharCode(97 + rIndex)}) ${respuesta}`,
-                                        bold: true,
-                                    })
-                                ],
-                                indent: {
-                                    left: 720 // 0.5 pulgadas en twips
-                                },
-                                shading: {
-                                    type: "clear",
-                                    color: "auto",
-                                    fill: "92D050"
-                                }
-                            })
-                        );
-                    } else {
-                        // Para respuestas normales
-                        elements.push(
-                            new Paragraph({
-                                children: [
-                                    new TextRun({
-                                        text: `${String.fromCharCode(97 + rIndex)}) ${respuesta}`,
-                                    })
-                                ],
-                                indent: {
-                                    left: 720 // 0.5 pulgadas en twips
-                                }
-                            })
-                        );
-                    }
-                });
-
-                // Espacio después de las respuestas
-                elements.push(
-                    new Paragraph({
-                        text: '',
-                        spacing: {
-                            after: 100
-                        }
-                    })
-                );
-
-                // Si se solicitan soluciones, añadir la solución después de las respuestas
-                if (conSoluciones && pregunta.solucion) {
-                    const solucionHtml = md.render(pregunta.solucion);
-                    
-                    // Espacio antes de la solución
-                    elements.push(
-                        new Paragraph({
-                            text: '',
-                            spacing: {
-                                after: 100
-                            }
-                        })
-                    );
-                    
-                    // Convertir la solución HTML a elementos de documento Word
-                    const $ = cheerio.load(solucionHtml);
-                    const bodyElements = $('body').children().toArray();
-                    for (const element of bodyElements) {
-                        const docxElements = await this.processHtmlElement($, element, 720); // Indentación adicional
-                        elements.push(...docxElements);
-                    }
-                }
-
-                // Espacio después de la pregunta completa
-                elements.push(
-                    new Paragraph({
-                        text: '',
-                        spacing: {
-                            after: 200
-                        }
-                    })
-                );
-
-                return elements;
+        // Procesar preguntas normales
+        const preguntasNormalesElements = await Promise.all(
+            preguntasNormales.map(async (testPregunta, index) => {
+                return this.procesarPreguntaParaDocumento(testPregunta, index, conSoluciones, md);
             })
         );
 
-        // Aplanar el array de arrays manualmente
-        for (const preguntaElements of preguntasElements) {
+        // Aplanar el array de preguntas normales
+        for (const preguntaElements of preguntasNormalesElements) {
             docElements.push(...preguntaElements);
+        }
+
+        // Si hay preguntas de reserva, añadir un título para separarlas
+        if (preguntasReserva.length > 0) {
+            // Añadir un salto de página antes de las preguntas de reserva
+            docElements.push(
+                new Paragraph({
+                    text: '',
+                    pageBreakBefore: true
+                })
+            );
+
+            // Añadir título para preguntas de reserva
+            docElements.push(
+                new Paragraph({
+                    text: 'PREGUNTAS DE RESERVA',
+                    heading: HeadingLevel.HEADING_2,
+                    spacing: {
+                        before: 400,
+                        after: 200
+                    },
+                    alignment: AlignmentType.CENTER
+                })
+            );
+
+            // Procesar preguntas de reserva
+            const preguntasReservaElements = await Promise.all(
+                preguntasReserva.map(async (testPregunta, index) => {
+                    return this.procesarPreguntaParaDocumento(testPregunta, index, conSoluciones, md);
+                })
+            );
+
+            // Aplanar el array de preguntas de reserva
+            for (const preguntaElements of preguntasReservaElements) {
+                docElements.push(...preguntaElements);
+            }
         }
 
         // Crear el documento final
@@ -232,6 +179,175 @@ export class ExamenService extends PaginatedService<Examen> {
 
         const buffer = await Packer.toBuffer(doc);
         return { buffer, filename };
+    }
+
+    // Método auxiliar para procesar una pregunta para el documento
+    private async procesarPreguntaParaDocumento(testPregunta: any, index: number, conSoluciones: boolean, md: any) {
+        const pregunta = testPregunta.pregunta;
+        const elements = [];
+
+        // Limpiar y normalizar el texto de la pregunta y respuestas
+        const descripcionLimpia = pregunta.descripcion.replace(/\s+/g, ' ').trim();
+
+        // Procesar cada respuesta para eliminar saltos de línea y espacios extra
+        const respuestasLimpias = pregunta.respuestas.map(r => {
+            return r.replace(/\s+/g, ' ').trim();
+        });
+
+        // Añadir la pregunta
+        elements.push(
+            new Paragraph({
+                children: [
+                    new TextRun({
+                        text: `${index + 1}. ${descripcionLimpia}`,
+                        bold: true
+                    })
+                ],
+                spacing: {
+                    after: 100
+                }
+            })
+        );
+
+        // Añadir las respuestas
+        respuestasLimpias.forEach((respuesta, rIndex) => {
+            const esRespuestaCorrecta = rIndex === pregunta.respuestaCorrectaIndex;
+
+            if (conSoluciones && esRespuestaCorrecta) {
+                // Para respuestas correctas en modo soluciones, crear un párrafo con fondo verde
+                elements.push(
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: `${String.fromCharCode(97 + rIndex)}) ${respuesta}`,
+                                bold: true,
+                            })
+                        ],
+                        indent: {
+                            left: 720 // 0.5 pulgadas en twips
+                        },
+                        shading: {
+                            type: "clear",
+                            color: "auto",
+                            fill: "92D050"
+                        }
+                    })
+                );
+            } else {
+                // Para respuestas normales
+                elements.push(
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: `${String.fromCharCode(97 + rIndex)}) ${respuesta}`,
+                            })
+                        ],
+                        indent: {
+                            left: 720 // 0.5 pulgadas en twips
+                        }
+                    })
+                );
+            }
+        });
+
+        // Espacio después de las respuestas
+        elements.push(
+            new Paragraph({
+                text: '',
+                spacing: {
+                    after: 100
+                }
+            })
+        );
+
+        // Si se solicitan soluciones, añadir la solución después de las respuestas
+        if (conSoluciones && pregunta.solucion) {
+            const solucionHtml = md.render(pregunta.solucion);
+
+            // Espacio antes de la solución
+            elements.push(
+                new Paragraph({
+                    text: '',
+                    spacing: {
+                        after: 100
+                    }
+                })
+            );
+
+            // Convertir la solución HTML a elementos de documento Word
+            const $ = cheerio.load(solucionHtml);
+            const bodyElements = $('body').children().toArray();
+            for (const element of bodyElements) {
+                const docxElements = await this.processHtmlElement($, element, 720); // Indentación adicional
+                elements.push(...docxElements);
+            }
+        }
+
+        // Espacio después de la pregunta completa
+        elements.push(
+            new Paragraph({
+                text: '',
+                spacing: {
+                    after: 200
+                }
+            })
+        );
+
+        return elements;
+    }
+
+    // Método privado para obtener una pregunta adyacente (siguiente o anterior)
+    private async getAdjacentPregunta(examenId: string, preguntaId: string, direction: 'next' | 'prev') {
+        // Obtener el examen con sus preguntas ordenadas
+        const examen = await this.prisma.examen.findFirst({
+            where: {
+                id: Number(examenId)
+            },
+            include: {
+                test: {
+                    include: {
+                        testPreguntas: {
+                            include: {
+                                pregunta: true
+                            },
+                            orderBy: {
+                                orden: 'asc'
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!examen) throw new NotFoundException('Examen no encontrado');
+
+        // Encontrar la pregunta actual por su ID
+        const testPregunta = examen.test.testPreguntas.find(tp => tp.preguntaId === Number(preguntaId));
+        if (!testPregunta) throw new NotFoundException('Pregunta no encontrada');
+
+        // Obtener el orden actual y calcular el siguiente/anterior
+        const ordenCurrent = testPregunta.orden;
+        const ordenTarget = direction === 'next' ? ordenCurrent + 1 : ordenCurrent - 1;
+
+        // Buscar la pregunta adyacente según el orden
+        const preguntaTarget = examen.test.testPreguntas.find(tp => tp.orden === ordenTarget);
+        if (!preguntaTarget) {
+            const message = direction === 'next' ? 'No hay más preguntas' : 'No hay preguntas anteriores';
+            throw new NotFoundException(message);
+        }
+
+        // Devolver la pregunta adyacente
+        return preguntaTarget.pregunta;
+    }
+
+    // Método para obtener la siguiente pregunta
+    public async nextPregunta(examenId: string, preguntaId: string) {
+        return this.getAdjacentPregunta(examenId, preguntaId, 'next');
+    }
+
+    // Método para obtener la pregunta anterior
+    public async prevPregunta(examenId: string, preguntaId: string) {
+        return this.getAdjacentPregunta(examenId, preguntaId, 'prev');
     }
 
     public async addPreguntasToAcademia(examenId: number) {
@@ -763,6 +879,26 @@ export class ExamenService extends PaginatedService<Examen> {
         });
     }
 
+    public async getSimulacroById(id: number) {
+        return this.prisma.examen.findUnique({
+            where: { id, tipoAcceso: TipoAcceso.SIMULACRO, estado: EstadoExamen.PUBLICADO },
+            include: {
+                test: {
+                    include: {
+                        testPreguntas: {
+                            include: {
+                                pregunta: true
+                            },
+                            orderBy: {
+                                orden: 'asc'
+                            }
+                        }
+                    }
+                },
+            },
+        });
+    }
+
     private obtenerSuscripcion(userId: number) {
         return this.prisma.suscripcion.findFirst({
             where: {
@@ -845,7 +981,7 @@ export class ExamenService extends PaginatedService<Examen> {
     }
 
     // Iniciar un examen para un usuario
-    public async startExamen(examenId: number, userId: number) {
+    public async startExamen(examenId: number, userId: number, isSimulacro: boolean = false) {
         // Verificar si el examen existe
         const examen = await this.prisma.examen.findUnique({
             where: { id: examenId },
@@ -858,16 +994,18 @@ export class ExamenService extends PaginatedService<Examen> {
             throw new BadRequestException('Examen no encontrado');
         }
 
-        const suscripcion = await this.obtenerSuscripcion(userId);
+        if (!isSimulacro) {
+            const suscripcion = await this.obtenerSuscripcion(userId);
 
-        if (!suscripcion) {
-            throw new BadRequestException('No tienes una suscripción activa');
-        }
+            if (!suscripcion) {
+                throw new BadRequestException('No tienes una suscripción activa');
+            }
 
-        const tieneAcceso = suscripcion.tipo == 'PRO' || (suscripcion.tipo == 'NORMAL' && suscripcion.examenId == examenId);
+            const tieneAcceso = suscripcion.tipo == 'PRO' || (suscripcion.tipo == 'NORMAL' && suscripcion.examenId == examenId);
 
-        if (!tieneAcceso) {
-            throw new BadRequestException('No tienes acceso a este examen');
+            if (!tieneAcceso) {
+                throw new BadRequestException('No tienes acceso a este examen');
+            }
         }
 
         // Verificar si el examen está disponible
@@ -912,7 +1050,7 @@ export class ExamenService extends PaginatedService<Examen> {
         });
 
         // Recuperar el test con las preguntas asociadas
-        return this.testService.getTestById(newTest.id);
+        return this.testService.getTestById(newTest.id, userId);
     }
 
     // Obtener todos los exámenes (para administradores)
@@ -1033,10 +1171,38 @@ export class ExamenService extends PaginatedService<Examen> {
             throw new BadRequestException('Examen no encontrado');
         }
 
+        //Crear nuevas preguntas en la base de datos con dificultad examen y identificador de examen
+        const preguntasActuales = await this.prisma.pregunta.findMany({
+            where: {
+                id: {
+                    in: preguntaIds
+                }
+            }
+        });
+
+        const preguntasNuevas = cloneDeep(preguntasActuales);
+        const preguntasNuevasCreadas = [];
+        for (let i = 0; i < preguntasNuevas.length; i++) {
+            const pregunta = preguntasNuevas[i];
+            pregunta.id = undefined;
+            pregunta.dificultad = Dificultad.EXAMEN;
+            const initialIdentificador = cloneDeep(pregunta.identificador);
+            pregunta.identificador = await generarIdentificador(
+                'ADMIN',
+                'PREGUNTA',
+                pregunta.temaId,
+                this.prisma,
+                true
+            );
+            console.log(initialIdentificador, pregunta.identificador);
+            const nuevaPregunta = await this.prisma.pregunta.create({ data: pregunta });
+            preguntasNuevasCreadas.push(nuevaPregunta);
+        }
+
         // Crear las entradas en TestPregunta
-        const testPreguntasData = preguntaIds.map((preguntaId) => ({
+        const testPreguntasData = preguntasNuevasCreadas.map((pregunta) => ({
             testId: examen.testId,
-            preguntaId,
+            preguntaId: pregunta.id,
         }));
 
         return this.prisma.testPregunta.createMany({
@@ -1133,5 +1299,157 @@ export class ExamenService extends PaginatedService<Examen> {
                 pregunta: true,
             },
         });
+    }
+
+    /**
+     * Verifica si un código de acceso es válido para un simulacro
+     * @param examenId ID del examen
+     * @param codigo Código de acceso
+     * @returns true si el código es válido, false si no lo es
+     */
+    async verificarCodigoAcceso(examenId: number, codigo: string): Promise<boolean> {
+        try {
+            // Buscar el examen
+            const examen = await this.prisma.examen.findUnique({
+                where: { id: examenId },
+                select: {
+                    id: true,
+                    codigoAcceso: true,
+                    tipoAcceso: true
+                }
+            });
+
+            // Verificar que el examen existe y es un simulacro
+            if (!examen) {
+                throw new Error('Examen no encontrado');
+            }
+
+            if (examen.tipoAcceso !== TipoAcceso.SIMULACRO) {
+                throw new Error('Este examen no es un simulacro');
+            }
+
+            // Verificar que el código coincide
+            if (!examen.codigoAcceso) {
+                throw new Error('Este simulacro no tiene código de acceso configurado');
+            }
+
+            // Comparar el código proporcionado con el código almacenado
+            return examen.codigoAcceso === codigo;
+        } catch (error) {
+            console.error('Error al verificar código de acceso:', error);
+            throw error;
+        }
+    }
+
+    public async getSimulacroResultados(idExamen: number, userId: number, userRole: Rol) {
+        // Verificar que el examen existe y es de tipo simulacro
+        const examen = await this.prisma.examen.findFirst({
+            where: {
+                id: idExamen,
+                tipoAcceso: TipoAcceso.SIMULACRO
+            }
+        });
+
+        if (!examen) {
+            throw new BadRequestException('El examen no existe o no es un simulacro');
+        }
+
+        // Obtener todos los tests asociados a este examen
+        const tests = await this.prisma.test.findMany({
+            where: {
+                examenId: idExamen,
+                status: TestStatus.FINALIZADO
+            },
+            include: {
+                realizador: {
+                    select: {
+                        id: true,
+                        nombre: true,
+                        apellidos: true,
+                        email: true,
+                        rol: true,
+                        comunidad: true
+                    }
+                },
+                respuestas: {
+                    where: {
+                        estado: 'RESPONDIDA'
+                    }
+                }
+            }
+        });
+
+        // Calcular estadísticas para cada test
+        const resultadosSinOrdenar = await Promise.all(tests.map(async (test) => {
+            // Obtener estadísticas detalladas del test
+            const stats = await this.testService.obtainTestStats(test.realizadorId, test.id, true);
+
+            // Calcular totales
+            const totalPreguntas = test.respuestas.length;
+            const correctas = test.respuestas.filter(r => r.esCorrecta).length;
+            const incorrectas = test.respuestas.filter(r => !r.esCorrecta).length;
+            const nota = totalPreguntas > 0 ? parseFloat(((correctas / totalPreguntas) * 10).toFixed(2)) : 0;
+
+            // Determinar qué información del usuario mostrar según el rol
+            let usuario;
+            if (userRole === Rol.ADMIN) {
+                // Administradores ven toda la información
+                usuario = {
+                    id: test.realizador.id,
+                    nombre: test.realizador.nombre,
+                    apellidos: test.realizador.apellidos,
+                    email: test.realizador.email,
+                };
+            } else if (userId === test.realizadorId) {
+                // El propio usuario ve su información
+                usuario = {
+                    id: test.realizador.id,
+                    nombre: test.realizador.nombre,
+                    apellidos: test.realizador.apellidos,
+                    email: test.realizador.email,
+                    esTuResultado: true
+                };
+            } else {
+                // Otros usuarios ven información limitada
+                usuario = {
+                    id: test.realizador.id,
+                    nombre: 'Usuario',
+                    esTuResultado: false
+                };
+            }
+
+            return {
+                testId: test.id,
+                fechaRealizacion: test.updatedAt,
+                usuario,
+                estadisticas: {
+                    totalPreguntas,
+                    correctas,
+                    incorrectas,
+                    nota,
+                    detalles: stats
+                },
+                posicion: 0 // Inicializar con un valor por defecto
+            };
+        }));
+
+        // Ordenar por nota (de mayor a menor)
+        const resultadosOrdenados = resultadosSinOrdenar.sort((a, b) => b.estadisticas.nota - a.estadisticas.nota);
+
+        // Añadir posición en el ranking después de ordenar
+        const resultados = resultadosOrdenados.map((resultado, index) => ({
+            ...resultado,
+            posicion: index + 1
+        }));
+
+        // Encontrar la posición del usuario actual
+        const posicionUsuario = resultados.findIndex(r => r.usuario.id === userId);
+
+        return {
+            examen,
+            resultados,
+            miPosicion: posicionUsuario !== -1 ? posicionUsuario + 1 : null,
+            totalParticipantes: resultados.length
+        };
     }
 }

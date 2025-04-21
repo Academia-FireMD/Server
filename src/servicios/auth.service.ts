@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Usuario } from '@prisma/client';
@@ -18,7 +20,23 @@ export class AuthService {
     private jwtService: JwtService,
     private prisma: PrismaService,
     private emailService: EmailService,
-  ) {}
+  ) { }
+
+  verifyToken(token: string): any {
+
+    if (!token) {
+      throw new ForbiddenException('Acceso denegado');
+    }
+
+    try {
+      const payload = this.jwtService.verify(token);
+      return payload;
+    } catch (error) {
+      const errorResult =
+        error.name == 'TokenExpiredError' ? 'La sesión ha expirado' : error;
+      throw new UnauthorizedException(errorResult);
+    }
+  }
 
   async validateUser(email: string, password: string): Promise<Usuario> {
     const user = await this.usersService.findUserByEmail(email);
@@ -32,7 +50,7 @@ export class AuthService {
     const payload = {
       email: user.email,
       sub: user.id,
-      rol: user.rol,
+      rol: user.validated ? user.rol : 'SIN_APROBACION',
       comunidad: user.comunidad,
       nombre: user.nombre,
       avatarUrl: user.avatarUrl,

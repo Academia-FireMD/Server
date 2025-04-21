@@ -150,6 +150,9 @@ export class PreguntasService extends PaginatedService<Pregunta> {
       where: {
         id: Number(preguntaId),
       },
+      include:{
+        testPreguntas:true
+      }
     });
   }
 
@@ -234,7 +237,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
       },
     });
     if (!user) throw new BadRequestException('Usuario no existe!');
-
+  
     //Auto generar identificador
     if (!dto.identificador)
       dto.identificador = await generarIdentificador(

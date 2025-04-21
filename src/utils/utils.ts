@@ -28,6 +28,7 @@ export const modifyItemId = async (
   prisma: any,
   createNewOnNonExistent = false,
 ): Promise<string> => {
+  const prismaType = type == 'FLASHCARD' ? 'flashcardData' : 'pregunta';
   const lastDotIndex = id.lastIndexOf('.');
   if (lastDotIndex === -1) {
     throw new BadRequestException('Formato de ID inválido');
@@ -52,7 +53,6 @@ export const modifyItemId = async (
 
   // Formatear con ceros a la izquierda
   const newId = `${base}.${itemNumber.toString().padStart(3, '0')}`;
-  const prismaType = type == 'FLASHCARD' ? 'flashcardData' : 'pregunta';
   const currentOne = await prisma[prismaType].findFirst({
     where: { identificador: id },
   });
@@ -94,99 +94,74 @@ export const generarIdentificador = async (
   prisma: PrismaService,
   esTipoExamen = false,
 ) => {
-  const map = {
-    ['FLASHCARD']: {
-      [Rol.ADMIN]: {
-        obtainNextId: async () => {
-          const maxId = await prisma.flashcardData.aggregate({
-            where: {
-              temaId: temaId,
-              createdBy: {
-                rol: {
-                  not: 'ALUMNO',
-                },
-              },
-            },
-            _max: {
-              id: true,
-            },
-          });
-          return (maxId._max.id || 0) + 1; // Si no hay registros, empieza desde 1
-        },
-      },
-      [Rol.ALUMNO]: {
-        obtainNextId: async () => {
-          const maxId = await prisma.flashcardData.aggregate({
-            where: {
-              temaId: temaId,
-              createdBy: {
-                rol: 'ALUMNO',
-              },
-            },
-            _max: {
-              id: true,
-            },
-          });
-          return (maxId._max.id || 0) + 1; // Si no hay registros, empieza desde 1
-        },
-      },
-    },
-    ['PREGUNTA']: {
-      [Rol.ADMIN]: {
-        obtainNextId: async () => {
-          const maxId = await prisma.pregunta.aggregate({
-            where: {
-              temaId: temaId,
-              createdBy: {
-                rol: {
-                  not: 'ALUMNO',
-                },
-              },
-            },
-            _max: {
-              id: true,
-            },
-          });
-          return (maxId._max.id || 0) + 1; // Si no hay registros, empieza desde 1
-        },
-      },
-      [Rol.ALUMNO]: {
-        obtainNextId: async () => {
-          const maxId = await prisma.pregunta.aggregate({
-            where: {
-              temaId: temaId,
-              createdBy: {
-                rol: 'ALUMNO',
-              },
-            },
-            _max: {
-              id: true,
-            },
-          });
-          return (maxId._max.id || 0) + 1; // Si no hay registros, empieza desde 1
-        },
-      },
-    },
-  };
   const foundTema = await prisma.tema.findFirst({
     where: {
       id: temaId,
     },
   });
   if (!foundTema) throw new BadRequestException('Tema no existe!');
+  
   const firstChar = type == 'FLASHCARD' ? 'F' : 'T';
   const secondChar = foundTema.categoria.charAt(0);
   const thirdChar = rol == Rol.ALUMNO ? 'A' : '';
   const forthChar = foundTema.numero;
   const fifthChar = esTipoExamen ? 'E' : '';
-  const code = await map[type][rol].obtainNextId();
-  return (
-    firstChar +
-    secondChar +
-    thirdChar +
-    forthChar +
-    fifthChar +
-    '.' +
-    formatWithLeadingZeros(code, 3)
-  );
+  
+  // Construir el prefijo del identificador
+  const prefix = firstChar + secondChar + thirdChar + forthChar + fifthChar;
+  
+  // Buscar el máximo número existente con este prefijo
+  let maxNumber = 0;
+  
+  if (type === 'FLASHCARD') {
+    const similarFlashcards = await prisma.flashcardData.findMany({
+      where: {
+        identificador: {
+          startsWith: prefix
+        },
+        temaId: temaId
+      },
+      orderBy: {
+        identificador: 'desc'
+      },
+      take: 10 // Tomamos varios para asegurarnos de encontrar el máximo
+    });
+    
+    for (const flashcard of similarFlashcards) {
+      // Extraer la parte numérica después del último punto
+      const parts = flashcard.identificador.split('.');
+      const numPart = parts[parts.length - 1];
+      const num = parseInt(numPart, 10);
+      if (!isNaN(num) && num > maxNumber) {
+        maxNumber = num;
+      }
+    }
+  } else { // PREGUNTA
+    const similarPreguntas = await prisma.pregunta.findMany({
+      where: {
+        identificador: {
+          startsWith: prefix
+        },
+        temaId: temaId
+      },
+      orderBy: {
+        identificador: 'desc'
+      },
+      take: 10 // Tomamos varios para asegurarnos de encontrar el máximo
+    });
+    
+    for (const pregunta of similarPreguntas) {
+      // Extraer la parte numérica después del último punto
+      const parts = pregunta.identificador.split('.');
+      const numPart = parts[parts.length - 1];
+      const num = parseInt(numPart, 10);
+      if (!isNaN(num) && num > maxNumber) {
+        maxNumber = num;
+      }
+    }
+  }
+  
+  // Incrementar el número y formatear
+  const nextNumber = maxNumber + 1;
+  return prefix + '.' + formatWithLeadingZeros(nextNumber, 3);
 };
