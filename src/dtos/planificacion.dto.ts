@@ -1,4 +1,5 @@
 import { Comunidad, TipoDePlanificacionDeseada } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -152,4 +153,119 @@ export class CreateOrUpdatePlanificacionMensualDto {
   @IsArray()
   @IsOptional()
   alumnosAsignados?: number[]; // Lista de IDs de alumnos a los que se les asigna la planificación
+}
+
+// Nuevo DTO para actualizar el progreso de un subbloque por parte de un alumno
+export class UpdateProgresoSubBloqueDto {
+  @IsInt()
+  @IsNotEmpty({ message: 'El ID del subbloque es requerido.' })
+  subBloqueId: number;
+
+  @IsBoolean()
+  @IsOptional()
+  realizado?: boolean;
+
+  @IsString()
+  @IsOptional()
+  comentariosAlumno?: string;
+  
+  @IsOptional()
+  @Type(() => Date) // Convertirá automáticamente el string ISO a Date
+  @IsDate()
+  posicionPersonalizada?: Date;
+}
+
+// Añadir un nuevo DTO para eventos personalizados
+export class EventoPersonalizadoDto {
+  @IsNumber()
+  @IsOptional()
+  id?: number;
+  
+  @IsString()
+  @IsNotEmpty({ message: 'El nombre del evento es requerido.' })
+  nombre: string;
+  
+  @IsString()
+  @IsOptional()
+  descripcion?: string;
+  
+  @IsDate()
+  @IsNotEmpty({ message: 'La fecha y hora de inicio son requeridas.' })
+  horaInicio: Date;
+  
+  @IsNumber()
+  @IsNotEmpty({ message: 'La duración es requerida.' })
+  duracion: number;
+  
+  @IsString()
+  @IsOptional()
+  color?: string;
+  
+  @IsBoolean()
+  @IsOptional()
+  importante?: boolean;
+  
+  @IsNumber()
+  @IsOptional()
+  tiempoAviso?: number;
+  
+  @IsBoolean()
+  @IsOptional()
+  realizado?: boolean;
+}
+
+// Añadir un DTO para crear/actualizar eventos personalizados
+export class CreateOrUpdateEventoPersonalizadoDto {
+  @IsOptional()
+  @IsInt({ message: 'El ID debe ser un número entero.' })
+  id?: number;
+  
+  @IsInt()
+  @IsNotEmpty({ message: 'El ID de la planificación es requerido.' })
+  planificacionId: number;
+  
+  @IsString()
+  @IsNotEmpty({ message: 'El nombre del evento es requerido.' })
+  nombre: string;
+  
+  @IsString()
+  @IsOptional()
+  descripcion?: string;
+  
+  @IsOptional()
+  @Type(() => Date) // Convertirá automáticamente el string ISO a Date
+  @IsDate()
+  @IsNotEmpty({ message: 'La fecha y hora de inicio son requeridas.' })
+  horaInicio: string;
+  
+  @IsNumber()
+  @IsNotEmpty({ message: 'La duración es requerida.' })
+  duracion: number;
+  
+  @IsString()
+  @IsOptional()
+  color?: string;
+  
+  @IsBoolean()
+  @IsOptional()
+  importante?: boolean;
+  
+  @IsNumber()
+  @IsOptional()
+  tiempoAviso?: number;
+}
+
+// DTO específico para actualizar solo el estado realizado
+export class UpdateEventoPersonalizadoRealizadoDto {
+  @IsInt()
+  @IsNotEmpty({ message: 'El ID del evento es requerido.' })
+  id: number;
+  
+  @IsInt()
+  @IsNotEmpty({ message: 'El ID de la planificación es requerido.' })
+  planificacionId: number;
+  
+  @IsBoolean()
+  @IsNotEmpty({ message: 'El estado realizado es requerido.' })
+  realizado: boolean;
 }

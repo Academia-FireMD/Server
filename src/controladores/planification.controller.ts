@@ -18,9 +18,12 @@ import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   AsignarPlanificacionMensualDto,
   CreateBloqueDto,
+  CreateOrUpdateEventoPersonalizadoDto,
   CreateOrUpdatePlanificacionMensualDto,
   CreateOrUpdatePlantillaSemanalDto,
   UpdateBloqueDto,
+  UpdateProgresoSubBloqueDto,
+  UpdateEventoPersonalizadoRealizadoDto,
 } from 'src/dtos/planificacion.dto';
 import { PlanificacionService } from 'src/servicios/planification.service';
 
@@ -91,6 +94,24 @@ export class PlanificacionController {
     );
   }
 
+  // Endpoint para actualizar el progreso de un subbloque
+  @Roles(Rol.ALUMNO)
+  @Post('/actualizar-progreso-subbloque')
+  async actualizarProgresoSubBloque(
+    @Body() dto: UpdateProgresoSubBloqueDto,
+    @Request() req,
+  ) {
+    return this.service.actualizarProgresoSubBloque(
+      req.user.id,
+      dto.subBloqueId,
+      {
+        realizado: dto.realizado,
+        comentariosAlumno: dto.comentariosAlumno,
+        posicionPersonalizada: dto.posicionPersonalizada,
+      },
+    );
+  }
+
   @Roles(Rol.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
   @Post('importar-excel')
@@ -132,7 +153,14 @@ export class PlanificacionController {
 
   @Roles(Rol.ADMIN, Rol.ALUMNO)
   @Get('/planificaciones-mensuales/:id')
-  async getPlanificacionMensual(@Param('id') id: string) {
+  async getPlanificacionMensual(@Param('id') id: string, @Request() req) {
+    // Si es alumno, mostrar con su progreso
+    if (req.user.role === Rol.ALUMNO) {
+      return this.service.getPlanificacionMensualConProgresoAlumno(
+        Number(id),
+        req.user.id,
+      );
+    }
     return this.service.getPlanificacionMensual(id);
   }
 
@@ -156,10 +184,14 @@ export class PlanificacionController {
     @Request() req,
   ) {
     const { id } = req.user;
-    return this.service.getAllPlanificacionesMensualesAlumno(body, Number(id));
+    return this.service.getAllPlanificacionesMensualesAlumnoConProgreso(
+      body,
+      Number(id),
+    );
   }
+
   // Crear una nueva planificacion mensual y asignarla a alumnos
-  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Roles(Rol.ADMIN)
   @Post('/planificacion-mensual')
   async createPlanificacionMensual(
     @Body() dto: CreateOrUpdatePlanificacionMensualDto,
@@ -171,5 +203,65 @@ export class PlanificacionController {
   @Post('/planificacion-mensual/clonar/:id')
   clonarPlanificacion(@Param('id') id: string) {
     return this.service.clonarPlanificacionMensual(id);
+  }
+
+  @Roles(Rol.ALUMNO)
+  @Get('/eventos-personalizados/:planificacionId')
+  async getEventosPersonalizadosAlumno(
+    @Param('planificacionId') planificacionId: string,
+    @Request() req,
+  ) {
+    return this.service.getEventosPersonalizadosAlumno(
+      Number(planificacionId),
+      req.user.id,
+    );
+  }
+
+  @Roles(Rol.ALUMNO)
+  @Post('/eventos-personalizados')
+  async crearEventoPersonalizadoAlumno(
+    @Body() dto: CreateOrUpdateEventoPersonalizadoDto,
+    @Request() req,
+  ) {
+    return this.service.crearEventoPersonalizadoAlumno(
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Roles(Rol.ALUMNO)
+  @Post('/eventos-personalizados/actualizar')
+  async actualizarEventoPersonalizadoAlumno(
+    @Body() dto: CreateOrUpdateEventoPersonalizadoDto,
+    @Request() req,
+  ) {
+    return this.service.actualizarEventoPersonalizadoAlumno(
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Roles(Rol.ALUMNO)
+  @Post('/eventos-personalizados/actualizar-realizado')
+  async actualizarRealizadoEventoPersonalizado(
+    @Body() dto: UpdateEventoPersonalizadoRealizadoDto,
+    @Request() req,
+  ) {
+    return this.service.actualizarEventoPersonalizadoRealizado(
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Roles(Rol.ALUMNO)
+  @Delete('/eventos-personalizados/:id')
+  async eliminarEventoPersonalizadoAlumno(
+    @Param('id') id: string,
+    @Request() req,
+  ) {
+    return this.service.eliminarEventoPersonalizadoAlumno(
+      req.user.id,
+      Number(id),
+    );
   }
 }

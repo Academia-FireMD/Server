@@ -36,7 +36,7 @@ export class NotificacionesService {
             include: {
                 planificacion: {
                     include: {
-                        asignacion: {
+                        asignaciones: {
                             include: {
                                 alumno: true,
                             },
@@ -45,8 +45,9 @@ export class NotificacionesService {
                 },
             },
         }).then(eventos => eventos.filter(evento => 
-            evento.planificacion?.asignacion?.alumno != null
+            evento.planificacion?.asignaciones?.length > 0
         ));
+
         for (const evento of eventosParaNotificar) {
             const horaInicio = new Date(evento.horaInicio);
             const tiempoAvisoMs = evento.tiempoAviso * 60 * 1000; // Convertir minutos a milisegundos
@@ -54,31 +55,34 @@ export class NotificacionesService {
 
             // Comprobar si ya es momento de notificar (el momento de notificación ya pasó)
             if (ahora >= momentoNotificacion && ahora < horaInicio) {
-                const alumno = evento.planificacion?.asignacion?.alumno;
-                if (alumno && alumno.email) {
-                    try {
-                        await this.emailService.sendEventReminder(
-                            alumno.email,
-                            {
-                                nombreAlumno: alumno.nombre,
-                                nombreEvento: evento.nombre,
-                                fechaEvento: dateFormatter.format(horaInicio),
-                                horaEvento: timeFormatter.format(horaInicio),
-                                comentarios: evento.comentarios || 'Sin comentarios adicionales'
-                            }
-                        );
+                // Ahora puede haber múltiples asignaciones, iteramos sobre ellas
+                for (const asignacion of evento.planificacion?.asignaciones || []) {
+                    const alumno = asignacion.alumno;
+                    if (alumno && alumno.email) {
+                        try {
+                            await this.emailService.sendEventReminder(
+                                alumno.email,
+                                {
+                                    nombreAlumno: alumno.nombre,
+                                    nombreEvento: evento.nombre,
+                                    fechaEvento: dateFormatter.format(horaInicio),
+                                    horaEvento: timeFormatter.format(horaInicio),
+                                    comentarios: evento.comentarios || 'Sin comentarios adicionales'
+                                }
+                            );
 
-                        // Marcar como notificado
-                        await this.prisma.subBloque.update({
-                            where: { id: evento.id },
-                            data: { notificacionEnviada: true }
-                        });
-
-                        this.logger.log(`Notificación enviada para el evento ${evento.id} al alumno ${alumno.email}`);
-                    } catch (error) {
-                        this.logger.error(`Error enviando notificación para evento ${evento.id}:`, error);
+                            this.logger.log(`Notificación enviada para el evento ${evento.id} al alumno ${alumno.email}`);
+                        } catch (error) {
+                            this.logger.error(`Error enviando notificación para evento ${evento.id} al alumno ${alumno.email}:`, error);
+                        }
                     }
                 }
+                
+                // Marcar como notificado sin importar el alumno (se notifica a todos)
+                await this.prisma.subBloque.update({
+                    where: { id: evento.id },
+                    data: { notificacionEnviada: true }
+                });
             }
         }
     }

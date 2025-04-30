@@ -14,6 +14,8 @@ import {
   CreateOrUpdatePlanificacionMensualDto,
   CreateOrUpdatePlantillaSemanalDto,
   UpdateBloqueDto,
+  CreateOrUpdateEventoPersonalizadoDto,
+  UpdateEventoPersonalizadoRealizadoDto,
 } from 'src/dtos/planificacion.dto';
 import * as XLSX from 'xlsx';
 import { PaginatedService } from './paginated.service';
@@ -100,8 +102,10 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
   }) {
     return this.prisma.planificacionMensual.count({
       where: {
-        asignacion: {
-          alumnoId: infoEjecutor.id,
+        asignaciones: {
+          some: {
+            alumnoId: infoEjecutor.id
+          }
         },
       },
     });
@@ -233,8 +237,10 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     return await this.prisma.$transaction(async (prisma) => {
       const whereAlumno = {
         id: Number(planificacionMensualId),
-        asignacion: {
-          alumnoId: infoEjecutor.id,
+        asignaciones: {
+          some: {
+            alumnoId: infoEjecutor.id
+          }
         },
       };
       const whereAdmin = {
@@ -245,7 +251,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
           where: infoEjecutor.role == 'ADMIN' ? whereAdmin : whereAlumno,
           include: {
             subBloques: true,
-            asignacion: true,
+            asignaciones: true,
           },
         });
       if (!foundPLanificacionMensual)
@@ -369,7 +375,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
       },
       include: {
         subBloques: true,
-        asignacion: true,
+        asignaciones: true,
       },
     });
   }
@@ -533,22 +539,24 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
               },
             },
             {
-              asignacion: {
-                alumno: {
-                  OR: [
-                    {
-                      email: {
-                        contains: dto.searchTerm ?? '',
-                        mode: 'insensitive',
+              asignaciones: {
+                some: {
+                  alumno: {
+                    OR: [
+                      {
+                        email: {
+                          contains: dto.searchTerm ?? '',
+                          mode: 'insensitive',
+                        },
                       },
-                    },
-                    {
-                      nombre: {
-                        contains: dto.searchTerm ?? '',
-                        mode: 'insensitive',
+                      {
+                        nombre: {
+                          contains: dto.searchTerm ?? '',
+                          mode: 'insensitive',
+                        },
                       },
-                    },
-                  ],
+                    ],
+                  },
                 },
               },
             },
@@ -556,7 +564,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
         },
       },
       {
-        asignacion: {
+        asignaciones: {
           include: {
             alumno: true,
           },
@@ -574,22 +582,24 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
           { comentariosAlumno: { not: null } }, // No nulo
           {
             planificacion: {
-              asignacion: {
-                alumno: {
-                  OR: [
-                    {
-                      email: {
-                        contains: dto.searchTerm ?? '',
-                        mode: 'insensitive',
+              asignaciones: {
+                some: {
+                  alumno: {
+                    OR: [
+                      {
+                        email: {
+                          contains: dto.searchTerm ?? '',
+                          mode: 'insensitive',
+                        },
                       },
-                    },
-                    {
-                      nombre: {
-                        contains: dto.searchTerm ?? '',
-                        mode: 'insensitive',
+                      {
+                        nombre: {
+                          contains: dto.searchTerm ?? '',
+                          mode: 'insensitive',
+                        },
                       },
-                    },
-                  ],
+                    ],
+                  },
                 },
               },
             },
@@ -599,7 +609,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
       {
         planificacion: {
           include: {
-            asignacion: {
+            asignaciones: {
               include: {
                 alumno: true,
               },
@@ -621,12 +631,18 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
           contains: dto.searchTerm ?? '',
           mode: 'insensitive',
         },
-        asignacion: {
-          alumnoId: idAlumno,
+        asignaciones: {
+          some: {
+            alumnoId: idAlumno
+          }
         },
       },
       {
-        asignacion: true,
+        asignaciones: {
+          where: {
+            alumnoId: idAlumno
+          }
+        },
       },
     );
   }
@@ -746,83 +762,493 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     return res;
   }
 
+  // Método para obtener planificación mensual con el progreso del alumno
+  public async getPlanificacionMensualConProgresoAlumno(
+    planificacionId: number,
+    alumnoId: number,
+  ) {
+    const planificacion = await this.prisma.planificacionMensual.findFirst({
+      where: {
+        id: Number(planificacionId),
+        asignaciones: {
+          some: {
+            alumnoId
+          }
+        },
+      },
+      include: {
+        subBloques: true,
+        asignaciones: {
+          where: {
+            alumnoId
+          }
+        },
+      },
+    });
+
+    if (!planificacion) {
+      throw new BadRequestException(
+        'Planificación no encontrada o no asignada a este alumno',
+      );
+    }
+
+    // Obtener todos los progresos del alumno para esta planificación
+    const progresos = await this.prisma.alumnoProgresoSubBloque.findMany({
+      where: {
+        asignacionAlumnoId: planificacionId,
+        asignacionAlumnoAlumnoId: alumnoId
+      },
+    });
+
+    // Obtener los eventos personalizados del alumno
+    const eventosPersonalizados =
+      await this.prisma.eventoPersonalizadoAlumno.findMany({
+        where: {
+          asignacionAlumnoId: planificacionId,
+          asignacionAlumnoAlumnoId: alumnoId
+        },
+      });
+
+    // Mapear cada subbloque con su progreso correspondiente
+    const subBloquesConProgreso = planificacion.subBloques.map((subBloque) => {
+      const progreso = progresos.find((p) => p.subBloqueId === subBloque.id);
+
+      // Crear un objeto base con las propiedades originales del subBloque
+      const subBloqueConProgreso = {
+        ...subBloque,
+        realizado: progreso?.realizado ?? subBloque.realizado,
+        comentariosAlumno:
+          progreso?.comentariosAlumno ?? subBloque.comentariosAlumno,
+      } as any;
+
+      // Solo añadir posicionPersonalizada si existe en el progreso
+      if (progreso && progreso.posicionPersonalizada) {
+        subBloqueConProgreso.posicionPersonalizada = progreso.posicionPersonalizada;
+      }
+
+      return subBloqueConProgreso;
+    });
+
+    return {
+      ...planificacion,
+      subBloques: subBloquesConProgreso,
+      eventosPersonalizados: eventosPersonalizados,
+    };
+  }
+
+  // Método para actualizar el progreso de un subbloque
+  public async actualizarProgresoSubBloque(
+    alumnoId: number,
+    subBloqueId: number,
+    datosActualizacion: {
+      realizado?: boolean;
+      comentariosAlumno?: string;
+      posicionPersonalizada?: Date;
+    },
+  ) {
+    // Encontrar el subbloque y verificar que pertenece a una planificación asignada al alumno
+    const subBloque = await this.prisma.subBloque.findUnique({
+      where: { id: subBloqueId },
+      include: {
+        planificacion: {
+          include: {
+            asignaciones: true,
+          },
+        },
+      },
+    });
+
+    if (!subBloque || !subBloque.planificacion) {
+      throw new BadRequestException(
+        'El subbloque no existe o no forma parte de una planificación',
+      );
+    }
+
+    // Verificar que la planificación está asignada al alumno
+    const asignacion = await this.prisma.asignacionAlumno.findFirst({
+      where: {
+        alumnoId,
+        planificacionId: subBloque.planificacion.id,
+      },
+    });
+
+    if (!asignacion) {
+      throw new BadRequestException(
+        'Este subbloque no está en una planificación asignada a este alumno',
+      );
+    }
+
+    // Buscar si ya existe un registro de progreso
+    const progresoExistente =
+      await this.prisma.alumnoProgresoSubBloque.findFirst({
+        where: {
+          asignacionAlumnoId: asignacion.planificacionId,
+          subBloqueId,
+        },
+      });
+
+    if (progresoExistente) {
+      // Actualizar el progreso existente
+      return this.prisma.alumnoProgresoSubBloque.update({
+        where: { id: progresoExistente.id },
+        data: datosActualizacion,
+      });
+    } else {
+      // Crear un nuevo registro de progreso
+      return this.prisma.alumnoProgresoSubBloque.create({
+        data: {
+          asignacionAlumnoId: asignacion.planificacionId,
+          asignacionAlumnoAlumnoId: alumnoId,
+          subBloqueId,
+          ...datosActualizacion,
+        },
+      });
+    }
+  }
+
+  // Método modificado para listar planificaciones mensuales de un alumno con su progreso
+  public async getAllPlanificacionesMensualesAlumnoConProgreso(
+    dto: PaginationDto,
+    idAlumno: number,
+  ) {
+    const result = await this.planificacionMensual.getPaginatedData(
+      dto,
+      {
+        identificador: {
+          contains: dto.searchTerm ?? '',
+          mode: 'insensitive',
+        },
+        asignaciones: {
+          some: {
+            alumnoId: idAlumno
+          }
+        },
+      },
+      {
+        asignaciones: {
+          where: {
+            alumnoId: idAlumno
+          }
+        },
+        subBloques: true,
+      },
+    );
+
+    // Para cada planificación, obtener el progreso del alumno
+    const planificaciones = [...result.data] as PlanificacionMensual[];
+
+    if (planificaciones.length > 0) {
+      // Obtener todos los progresos del alumno para estas planificaciones
+      const planificacionesIds = planificaciones.map((p) => p.id);
+
+      const progresos = await this.prisma.alumnoProgresoSubBloque.findMany({
+        where: {
+          asignacionAlumnoId: {
+            in: planificacionesIds,
+          },
+          asignacionAlumnoAlumnoId: idAlumno
+        },
+      });
+
+      // Agrupar los progresos por planificacionId para acceso más rápido
+      const progresosPorPlanificacion = {};
+      for (const progreso of progresos) {
+        if (!progresosPorPlanificacion[progreso.asignacionAlumnoId]) {
+          progresosPorPlanificacion[progreso.asignacionAlumnoId] = [];
+        }
+        progresosPorPlanificacion[progreso.asignacionAlumnoId].push(progreso);
+      }
+
+      // Combinar la información de progreso con cada planificación
+      for (let i = 0; i < planificaciones.length; i++) {
+        const planificacion = planificaciones[i];
+        const progresosPlanificacion =
+          progresosPorPlanificacion[planificacion.id] || [];
+
+        // Actualizar cada subbloque con su progreso correspondiente
+        const subBloquesConProgreso = (planificacion as any).subBloques.map(
+          (subBloque) => {
+            const progreso = progresosPlanificacion.find(
+              (p) => p.subBloqueId === subBloque.id,
+            );
+
+            return {
+              ...subBloque,
+              realizado: progreso?.realizado ?? subBloque.realizado,
+              comentariosAlumno:
+                progreso?.comentariosAlumno ?? subBloque.comentariosAlumno,
+              posicionPersonalizada: progreso?.posicionPersonalizada ?? null,
+            };
+          },
+        );
+
+        planificaciones[i] = {
+          ...planificacion,
+          subBloques: subBloquesConProgreso,
+        } as any;
+      }
+    }
+
+    return {
+      ...result,
+      data: planificaciones,
+    };
+  }
+
+  // Método modificado para asignar planificaciones a alumnos utilizando AlumnoProgresoSubBloque
   public async asignarPlanificacionMensual(
     planificacionId: number,
     alumnosIds: number[],
   ): Promise<any> {
     return await this.prisma.$transaction(async (prisma) => {
       // Verifica si la planificación existe
-      const planificacionOriginal =
-        await prisma.planificacionMensual.findUnique({
-          where: { id: planificacionId },
-          include: { subBloques: true }, // Incluye los sub-bloques relacionados
-        });
+      const planificacion = await prisma.planificacionMensual.findUnique({
+        where: { id: planificacionId },
+        include: { subBloques: true },
+      });
 
-      if (!planificacionOriginal) {
+      if (!planificacion) {
         throw new BadRequestException('La planificación mensual no existe.');
       }
 
-      if (alumnosIds.length == 0) {
+      if (alumnosIds.length === 0) {
         throw new BadRequestException('Debes seleccionar alumnos!');
       }
 
-      // Procesa la asignación para cada alumno
-      const nuevasPlanificaciones = await Promise.all(
-        alumnosIds.map(async (alumnoId) => {
-          let subBloquesClonados = [];
-          if (planificacionOriginal.subBloques.length > 0) {
-            subBloquesClonados = cloneDeep(planificacionOriginal.subBloques);
-            subBloquesClonados = subBloquesClonados.map((subBloque) => ({
-              horaInicio: subBloque.horaInicio,
-              duracion: subBloque.duracion,
-              nombre: subBloque.nombre,
-              comentarios: subBloque.comentarios,
-              color: subBloque.color,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              importante: subBloque.importante ?? false,
-              tiempoAviso: subBloque.tiempoAviso ?? null,
-            }));
-          }
-          const nuevaPlanificacion = await prisma.planificacionMensual.create({
+      // Crear nuevas planificaciones y asignaciones para cada alumno
+      const asignaciones = [];
+
+      for (const alumnoId of alumnosIds) {
+        // Verificar que el alumno no tenga ya asignada esta planificación
+        const asignacionExistente = await prisma.asignacionAlumno.findFirst({
+          where: {
+            alumnoId,
+            planificacionId: planificacion.id,
+          },
+        });
+
+        if (asignacionExistente) {
+          asignaciones.push({
+            alumnoId,
+            planificacionId: planificacion.id,
+            estado: 'ya_asignada',
+          });
+          continue;
+        }
+
+        // Crear asignación
+        await prisma.asignacionAlumno.create({
+          data: {
+            alumnoId,
+            planificacionId: planificacion.id,
+          },
+        });
+
+        // Crear registros iniciales de progreso para cada subbloque
+        for (const subBloque of planificacion.subBloques) {
+          await prisma.alumnoProgresoSubBloque.create({
             data: {
-              asignada: true,
-              identificador: `${planificacionOriginal.identificador}-ALUMNO-${alumnoId}`,
-              descripcion: planificacionOriginal.descripcion,
-              mes: planificacionOriginal.mes,
-              ano: planificacionOriginal.ano,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              tipoDePlanificacion: planificacionOriginal.tipoDePlanificacion,
-              subBloques: {
-                create: subBloquesClonados,
-              },
-            },
-            include: {
-              asignacion: true,
+              asignacionAlumnoId: planificacion.id,
+              asignacionAlumnoAlumnoId: alumnoId,
+              subBloqueId: subBloque.id,
+              realizado: false,
             },
           });
+        }
 
-          await prisma.asignacionAlumno.create({
-            data: {
-              alumnoId,
-              planificacionId: nuevaPlanificacion.id,
-            },
-          });
+        asignaciones.push({
+          alumnoId,
+          planificacionId: planificacion.id,
+          estado: 'asignada',
+        });
+      }
 
-          return nuevaPlanificacion;
-        }),
-      );
+      // Marcar la planificación como asignada
+      await prisma.planificacionMensual.update({
+        where: { id: planificacion.id },
+        data: { asignada: true },
+      });
 
       return {
-        message:
-          'Planificaciones personalizadas creadas y asignadas correctamente',
-        planificacionOriginal: planificacionId,
-        nuevasPlanificaciones: nuevasPlanificaciones.map((planificacion) => ({
-          id: planificacion.id,
-          alumnoId: planificacion.asignacion?.alumnoId || null,
-        })),
+        message: 'Planificaciones asignadas correctamente',
+        planificacionId: planificacion.id,
+        asignaciones,
       };
+    });
+  }
+
+  // Método para obtener eventos personalizados de un alumno para una planificación
+  public async getEventosPersonalizadosAlumno(
+    planificacionId: number,
+    alumnoId: number,
+  ) {
+    // Verificar que la planificación está asignada al alumno
+    const asignacion = await this.prisma.asignacionAlumno.findFirst({
+      where: {
+        alumnoId,
+        planificacionId,
+      },
+    });
+
+    if (!asignacion) {
+      throw new BadRequestException(
+        'La planificación no está asignada a este alumno',
+      );
+    }
+
+    // Obtener los eventos personalizados
+    return this.prisma.eventoPersonalizadoAlumno.findMany({
+      where: {
+        asignacionAlumnoId: planificacionId,
+      },
+    });
+  }
+
+  // Método para crear un evento personalizado
+  public async crearEventoPersonalizadoAlumno(
+    alumnoId: number,
+    dto: CreateOrUpdateEventoPersonalizadoDto,
+  ) {
+    // Verificar que la planificación existe y está asignada al alumno
+    const asignacion = await this.prisma.asignacionAlumno.findFirst({
+      where: {
+        alumnoId,
+        planificacionId: dto.planificacionId,
+      },
+    });
+
+    if (!asignacion) {
+      throw new BadRequestException(
+        'La planificación no está asignada a este alumno',
+      );
+    }
+
+    // Crear el evento personalizado
+    return this.prisma.eventoPersonalizadoAlumno.create({
+      data: {
+        asignacionAlumnoId: dto.planificacionId,
+        asignacionAlumnoAlumnoId: alumnoId,
+        nombre: dto.nombre,
+        descripcion: dto.descripcion,
+        horaInicio: dto.horaInicio,
+        duracion: dto.duracion,
+        color: dto.color,
+        importante: dto.importante ?? false,
+        tiempoAviso: dto.tiempoAviso,
+      },
+    });
+  }
+
+  // Método para actualizar un evento personalizado
+  public async actualizarEventoPersonalizadoAlumno(
+    alumnoId: number,
+    dto: CreateOrUpdateEventoPersonalizadoDto,
+  ) {
+    if (!dto.id) {
+      throw new BadRequestException(
+        'El ID del evento es requerido para actualizarlo',
+      );
+    }
+
+    // Verificar que el evento existe y pertenece al alumno
+    const evento = await this.prisma.eventoPersonalizadoAlumno.findUnique({
+      where: { id: dto.id },
+      include: {
+        asignacion: true,
+      },
+    });
+
+    if (!evento) {
+      throw new BadRequestException('El evento no existe');
+    }
+
+    if (evento.asignacion.alumnoId !== alumnoId) {
+      throw new BadRequestException(
+        'No tienes permiso para editar este evento',
+      );
+    }
+
+    // Actualizar el evento
+    return this.prisma.eventoPersonalizadoAlumno.update({
+      where: { id: dto.id },
+      data: {
+        nombre: dto.nombre,
+        descripcion: dto.descripcion,
+        horaInicio: dto.horaInicio,
+        duracion: dto.duracion,
+        color: dto.color,
+        importante: dto.importante ?? false,
+        tiempoAviso: dto.tiempoAviso,
+      },
+    });
+  }
+
+  // Método para eliminar un evento personalizado
+  public async eliminarEventoPersonalizadoAlumno(
+    alumnoId: number,
+    eventoId: number,
+  ) {
+    // Verificar que el evento existe y pertenece al alumno
+    const evento = await this.prisma.eventoPersonalizadoAlumno.findUnique({
+      where: { id: eventoId },
+      include: {
+        asignacion: true,
+      },
+    });
+
+    if (!evento) {
+      throw new BadRequestException('El evento no existe');
+    }
+
+    if (evento.asignacion.alumnoId !== alumnoId) {
+      throw new BadRequestException(
+        'No tienes permiso para eliminar este evento',
+      );
+    }
+
+    // Eliminar el evento
+    return this.prisma.eventoPersonalizadoAlumno.delete({
+      where: { id: eventoId },
+    });
+  }
+
+  // En el servicio planification.service.ts del backend
+  async actualizarEventoPersonalizadoRealizado(
+    alumnoId: number,
+    dto: UpdateEventoPersonalizadoRealizadoDto,
+  ) {
+    // Verificamos primero que la asignación existe para ese alumno
+    const asignacion = await this.prisma.asignacionAlumno.findFirst({
+      where: {
+        alumnoId: alumnoId,
+        planificacionId: dto.planificacionId,
+      },
+    });
+
+    if (!asignacion) {
+      throw new BadRequestException(
+        'La planificación no está asignada a este alumno',
+      );
+    }
+
+    // Verificar que el evento pertenece al alumno
+    const eventoExistente = await this.prisma.eventoPersonalizadoAlumno.findFirst({
+      where: {
+        id: dto.id,
+        asignacionAlumnoId: asignacion.planificacionId,
+      },
+    });
+
+    if (!eventoExistente) {
+      throw new BadRequestException(
+        'El evento no existe o no pertenece al alumno',
+      );
+    }
+
+    // Actualizar solo el campo realizado
+    return this.prisma.eventoPersonalizadoAlumno.update({
+      where: { id: dto.id },
+      data: { realizado: dto.realizado },
     });
   }
 }

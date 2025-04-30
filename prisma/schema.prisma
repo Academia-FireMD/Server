@@ -307,6 +307,9 @@ model SubBloque {
   bloque              PlanificacionBloque?  @relation(fields: [bloqueId], references: [id], onDelete: Cascade)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @default(now())
+  
+  // Nueva relación con el progreso
+  progresosAlumnos    AlumnoProgresoSubBloque[]
 }
 
 model PlantillaSemanal {
@@ -319,29 +322,49 @@ model PlantillaSemanal {
 }
 
 model PlanificacionMensual {
-  id                  Int                        @id @default(autoincrement())
+  id                  Int                @id @default(autoincrement())
   identificador       String
   descripcion         String?
-  mes                 Int // Mes (1-12)
-  ano                 Int // Año
-  asignada            Boolean                    @default(false)
-  esPorDefecto        Boolean                    @default(false)
+  mes                 Int 
+  ano                 Int
+  asignada            Boolean            @default(false)
+  esPorDefecto        Boolean            @default(false)
   relevancia          Comunidad[]
   tipoDePlanificacion TipoDePlanificacionDeseada @default(SEIS_HORAS)
-  subBloques          SubBloque[] // Relación directa con los sub-bloques o eventos específicos
-  asignacion          AsignacionAlumno?
-  createdAt           DateTime                   @default(now())
-  updatedAt           DateTime                   @updatedAt
+  subBloques          SubBloque[] 
+  asignaciones        AsignacionAlumno[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 }
 
 model AsignacionAlumno {
-  alumnoId        Int
-  planificacionId Int @unique
+  alumnoId            Int
+  planificacionId     Int
 
-  alumno        Usuario              @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
-  planificacion PlanificacionMensual @relation(fields: [planificacionId], references: [id], onDelete: Cascade)
+  alumno              Usuario            @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+  planificacion       PlanificacionMensual @relation(fields: [planificacionId], references: [id], onDelete: Cascade)
+  
+  // Relaciones con progreso y eventos personalizados
+  progresos           AlumnoProgresoSubBloque[]
+  eventosPersonalizados EventoPersonalizadoAlumno[]
 
-  @@id([alumnoId, planificacionId]) // Llave primaria compuesta para evitar duplicados
+  @@id([alumnoId, planificacionId]) // Llave primaria compuesta
+}
+
+// Nueva tabla para el progreso del alumno en cada subbloque
+model AlumnoProgresoSubBloque {
+  id                  Int               @id @default(autoincrement())
+  asignacionAlumnoId  Int              // Planificación
+  asignacionAlumnoAlumnoId Int        // Alumno
+  subBloqueId         Int
+  realizado           Boolean           @default(false)
+  comentariosAlumno   String?
+  posicionPersonalizada DateTime?    // Nueva propiedad para guardar la posición personalizada del evento
+  
+  asignacion          AsignacionAlumno @relation(fields: [asignacionAlumnoAlumnoId, asignacionAlumnoId], references: [alumnoId, planificacionId], onDelete: Cascade)
+  subBloque           SubBloque        @relation(fields: [subBloqueId], references: [id], onDelete: Cascade)
+
+  @@unique([asignacionAlumnoAlumnoId, asignacionAlumnoId, subBloqueId])
 }
 
 model Documento {
@@ -436,4 +459,24 @@ model UsuarioExterno {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Añadir un nuevo modelo para eventos personalizados del alumno
+model EventoPersonalizadoAlumno {
+  id                  Int                @id @default(autoincrement())
+  asignacionAlumnoId  Int                // Planificación
+  asignacionAlumnoAlumnoId Int           // Alumno
+  nombre              String
+  descripcion         String?
+  horaInicio          DateTime
+  duracion            Int
+  color               String?
+  importante          Boolean            @default(false)
+  tiempoAviso         Int?
+  realizado           Boolean            @default(false)
+  
+  asignacion          AsignacionAlumno   @relation(fields: [asignacionAlumnoAlumnoId, asignacionAlumnoId], references: [alumnoId, planificacionId], onDelete: Cascade)
+  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 }
