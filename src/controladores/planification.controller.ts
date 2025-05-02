@@ -22,15 +22,15 @@ import {
   CreateOrUpdatePlanificacionMensualDto,
   CreateOrUpdatePlantillaSemanalDto,
   UpdateBloqueDto,
-  UpdateProgresoSubBloqueDto,
   UpdateEventoPersonalizadoRealizadoDto,
+  UpdateProgresoSubBloqueDto,
 } from 'src/dtos/planificacion.dto';
 import { PlanificacionService } from 'src/servicios/planification.service';
 
 @UseGuards(RolesGuard)
 @Controller('planificaciones')
 export class PlanificacionController {
-  constructor(private readonly service: PlanificacionService) {}
+  constructor(private readonly service: PlanificacionService) { }
 
   // Visualizar la rejilla de todos los bloques creados
   @Roles(Rol.ADMIN)
@@ -51,10 +51,10 @@ export class PlanificacionController {
     return this.service.deletePlantillaSemanal(Number(id));
   }
 
-  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Roles(Rol.ADMIN)
   @Delete('/planificacion-mensual/:id')
-  async deletePlanificacionMensual(@Param('id') id: string, @Request() req) {
-    return this.service.deletePlanificacionMensual(Number(id), req.user);
+  async deletePlanificacionMensual(@Param('id') id: string) {
+    return this.service.deletePlanificacionMensual(Number(id));
   }
 
   @Roles(Rol.ADMIN, Rol.ALUMNO)
@@ -93,6 +93,16 @@ export class PlanificacionController {
       alumnosIds,
     );
   }
+
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Post('/desvincular-planificacion-mensual/:id')
+  async desvincularPlanificacionMensual(@Param('id') id: string, @Request() req) {
+    return this.service.desvincularPlanificacionMensual(
+      req.user.id,
+      Number(id),
+    );
+  }
+
 
   // Endpoint para actualizar el progreso de un subbloque
   @Roles(Rol.ALUMNO)

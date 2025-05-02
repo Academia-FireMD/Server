@@ -6,15 +6,14 @@ import {
   SubBloque,
   TipoDePlanificacionDeseada,
 } from '@prisma/client';
-import { cloneDeep } from 'lodash';
 import { firstValueFrom, forkJoin } from 'rxjs';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import {
   CreateBloqueDto,
+  CreateOrUpdateEventoPersonalizadoDto,
   CreateOrUpdatePlanificacionMensualDto,
   CreateOrUpdatePlantillaSemanalDto,
   UpdateBloqueDto,
-  CreateOrUpdateEventoPersonalizadoDto,
   UpdateEventoPersonalizadoRealizadoDto,
 } from 'src/dtos/planificacion.dto';
 import * as XLSX from 'xlsx';
@@ -232,23 +231,13 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
 
   public async deletePlanificacionMensual(
     planificacionMensualId: number,
-    infoEjecutor: { role: 'ADMIN' | 'ALUMNO'; id: number },
   ) {
     return await this.prisma.$transaction(async (prisma) => {
-      const whereAlumno = {
-        id: Number(planificacionMensualId),
-        asignaciones: {
-          some: {
-            alumnoId: infoEjecutor.id
-          }
-        },
-      };
-      const whereAdmin = {
-        id: Number(planificacionMensualId),
-      };
       const foundPLanificacionMensual =
         await prisma.planificacionMensual.findFirst({
-          where: infoEjecutor.role == 'ADMIN' ? whereAdmin : whereAlumno,
+          where: {
+            id: Number(planificacionMensualId),
+          },
           include: {
             subBloques: true,
             asignaciones: true,
@@ -1249,6 +1238,79 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     return this.prisma.eventoPersonalizadoAlumno.update({
       where: { id: dto.id },
       data: { realizado: dto.realizado },
+    });
+  }
+
+  /**
+   * Permite a un alumno desvincular una planificación mensual asignada,
+   * eliminando todo su progreso asociado.
+   * @param alumnoId ID del alumno que desea desvincular la planificación
+   * @param planificacionId ID de la planificación a desvincular
+   * @returns Mensaje de confirmación
+   */
+  public async desvincularPlanificacionMensual(
+    alumnoId: number,
+    planificacionId: number,
+  ): Promise<any> {
+    return await this.prisma.$transaction(async (prisma) => {
+      // Verificar que existe la asignación
+      const asignacionExistente = await prisma.asignacionAlumno.findFirst({
+        where: {
+          alumnoId,
+          planificacionId,
+        },
+      });
+
+      if (!asignacionExistente) {
+        throw new BadRequestException('No tienes esta planificación asignada.');
+      }
+
+      // Eliminar todos los progresos de subbloques asociados
+      await prisma.alumnoProgresoSubBloque.deleteMany({
+        where: {
+          asignacionAlumnoAlumnoId: alumnoId,
+          asignacionAlumnoId: planificacionId,
+        },
+      });
+
+      // Eliminar todos los eventos personalizados asociados
+      await prisma.eventoPersonalizadoAlumno.deleteMany({
+        where: {
+          asignacionAlumnoAlumnoId: alumnoId,
+          asignacionAlumnoId: planificacionId,
+        },
+      });
+
+      // Eliminar la asignación
+      await prisma.asignacionAlumno.delete({
+        where: {
+          alumnoId_planificacionId: {
+            alumnoId,
+            planificacionId,
+          },
+        },
+      });
+
+      // Verificar si quedan asignaciones para esta planificación
+      const asignacionesRestantes = await prisma.asignacionAlumno.count({
+        where: {
+          planificacionId,
+        },
+      });
+
+      // Si no quedan asignaciones, marcar la planificación como no asignada
+      if (asignacionesRestantes === 0) {
+        await prisma.planificacionMensual.update({
+          where: { id: planificacionId },
+          data: { asignada: false },
+        });
+      }
+
+      return {
+        message: 'Planificación desvinculada correctamente',
+        planificacionId,
+        alumnoId,
+      };
     });
   }
 }
