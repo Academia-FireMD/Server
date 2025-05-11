@@ -20,19 +20,39 @@ export class TemaService extends PaginatedService<Tema> {
       where: {
         id,
       },
+      include: {
+        modulo: true,
+      }
     });
   }
 
   public getAllTemasPaginated(dto: PaginationDto) {
     return this.getPaginatedData(dto, {
-      categoria: {
-        contains: dto.searchTerm ?? '',
-        mode: 'insensitive',
-      },
+      OR: [
+        {
+          descripcion: {
+            contains: dto.searchTerm ?? '',
+            mode: 'insensitive',
+          },
+        },
+        {
+          numero: {
+            contains: dto.searchTerm ?? '',
+            mode: 'insensitive',
+          },
+        },
+      ],
+      ...dto.where,
+    }, {
+      modulo: true,
     });
   }
   public getTemas() {
-    return this.prisma.tema.findMany({});
+    return this.prisma.tema.findMany({
+      include: {
+        modulo: true,
+      },
+    });
   }
 
   public deleteTema(temaId: string) {
@@ -50,17 +70,17 @@ export class TemaService extends PaginatedService<Tema> {
           id: dto.id,
         },
         data: {
-          numero: dto.numero,
-          categoria: dto.categoria,
+          numero: dto.numero + '',
           descripcion: dto.descripcion,
+          moduloId: dto.moduloId,
         },
       });
     } else {
       return this.prisma.tema.create({
         data: {
-          numero: dto.numero,
-          categoria: dto.categoria,
+          numero: dto.numero + '',
           descripcion: dto.descripcion,
+          moduloId: dto.moduloId,
         },
       });
     }

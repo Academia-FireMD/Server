@@ -10,12 +10,11 @@ export class CreateTemaDto {
   })
   descripcion?: string;
 
+
+
   @IsOptional()
-  @IsString({ message: 'La categoría debe ser una cadena de texto.' })
-  @MaxLength(100, {
-    message: 'La categoría no puede tener más de 100 caracteres.',
-  })
-  categoria?: string;
+  @IsInt({ message: 'El ID del módulo debe ser un número entero.' })
+  moduloId?: number;
 }
 
 export class UpdateTemaDto extends CreateTemaDto {

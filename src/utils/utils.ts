@@ -98,11 +98,14 @@ export const generarIdentificador = async (
     where: {
       id: temaId,
     },
+    include: {
+      modulo: true,
+    },
   });
   if (!foundTema) throw new BadRequestException('Tema no existe!');
   
   const firstChar = type == 'FLASHCARD' ? 'F' : 'T';
-  const secondChar = foundTema.categoria.charAt(0);
+  const secondChar = foundTema.modulo.nombre.charAt(0);
   const thirdChar = rol == Rol.ALUMNO ? 'A' : '';
   const forthChar = foundTema.numero;
   const fifthChar = esTipoExamen ? 'E' : '';

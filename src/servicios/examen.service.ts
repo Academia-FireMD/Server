@@ -52,7 +52,11 @@ export class ExamenService extends PaginatedService<Examen> {
                             include: {
                                 pregunta: {
                                     include: {
-                                        tema: true
+                                        tema: {
+                                            include: {
+                                                modulo: true
+                                            }
+                                        }
                                     }
                                 }
                             },
@@ -1067,7 +1071,11 @@ export class ExamenService extends PaginatedService<Examen> {
                             include: {
                                 pregunta: {
                                     include: {
-                                        tema: true
+                                        tema: {
+                                            include: {
+                                                modulo: true
+                                            }
+                                        }
                                     }
                                 }
                             }

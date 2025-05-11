@@ -165,14 +165,27 @@ enum EstadoFlashcard {
   REVISAR
 }
 
+model Modulo {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @unique
+  descripcion String?
+  esPublico   Boolean  @default(true)
+  temas       Tema[]   @relation("ModuloTemas")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Tema {
   id            Int             @id @default(autoincrement())
   numero        String
   descripcion   String?
-  categoria     String?
-  preguntas     Pregunta[] // Relación con Pregunta
+  moduloId      Int?
+  modulo        Modulo?         @relation("ModuloTemas", fields: [moduloId], references: [id], onDelete: Cascade)
+  preguntas     Pregunta[]
   createdAt     DateTime        @default(now())
   FlashcardData FlashcardData[]
+
+  @@index([moduloId])
 }
 
 model TestPregunta {

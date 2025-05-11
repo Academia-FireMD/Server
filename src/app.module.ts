@@ -10,6 +10,7 @@ import { DocumentosController } from './controladores/documents.controller';
 import { ExamenController } from './controladores/examen.controller';
 import { FactorController } from './controladores/factor.controller';
 import { FlashcardDataController } from './controladores/flashcards.controller';
+import { ModuloController } from './controladores/modulo.controller';
 import { PlanificacionController } from './controladores/planification.controller';
 import { PreguntasController } from './controladores/preguntas.controller';
 import { ReporteFalloController } from './controladores/reporte-fallos.controller';
@@ -29,6 +30,7 @@ import {
   FlashcardService,
   FlashcardTestService,
 } from './servicios/flashcard.service';
+import { ModuloService } from './servicios/modulo.service';
 import { NotificacionesService } from './servicios/notificaciones.service';
 import {
   PlanificacionMensualService,
@@ -67,7 +69,8 @@ import { UsersService } from './servicios/user.service';
     FlashcardDataController,
     PlanificacionController,
     DocumentosController,
-    ExamenController
+    ExamenController,
+    ModuloController
   ],
   providers: [
     ConfigService,
@@ -95,7 +98,8 @@ import { UsersService } from './servicios/user.service';
     CloudinaryProvider,
     CypressService,
     NotificacionesService,
-    ExamenService
+    ExamenService,
+    ModuloService
   ],
 })
 export class AppModule {

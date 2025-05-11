@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   Comunidad,
   FactorName,
+  Modulo,
   Pregunta,
   PrismaClient,
   Respuesta,
@@ -93,7 +94,11 @@ export class TestService extends PaginatedService<Test> {
       include: {
         pregunta: {
           include: {
-            tema: true,
+            tema: {
+              include: {
+                modulo: true,
+              },
+            },
           },
         },
       },
@@ -212,7 +217,11 @@ export class TestService extends PaginatedService<Test> {
           include: {
             pregunta: {
               include: {
-                tema: true,
+                tema: {
+                  include: {
+                    modulo: true,
+                  },
+                },
               },
             },
           },
@@ -242,7 +251,7 @@ export class TestService extends PaginatedService<Test> {
 
   groupTestsByCategory(
     tests: (Test & {
-      testPreguntas: (TestPregunta & { pregunta: Pregunta & { tema: Tema } })[];
+      testPreguntas: (TestPregunta & { pregunta: Pregunta & { tema: Tema & { modulo: Modulo } } })[];
     })[],
   ) {
     const groupedTests = {
@@ -253,7 +262,7 @@ export class TestService extends PaginatedService<Test> {
       const categorias = new Set<string>();
 
       for (const testPregunta of test.testPreguntas) {
-        const categoria = testPregunta.pregunta.tema.categoria;
+        const categoria = testPregunta.pregunta.tema.modulo.nombre;
         categorias.add(categoria); // Añadimos la categoría al Set
       }
 
@@ -426,7 +435,11 @@ export class TestService extends PaginatedService<Test> {
           include: {
             pregunta: {
               include: {
-                tema: true,
+                tema: {
+                  include: {
+                    modulo: true,
+                  },
+                },
               },
             },
           },

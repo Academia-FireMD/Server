@@ -150,8 +150,8 @@ export class PreguntasService extends PaginatedService<Pregunta> {
       where: {
         id: Number(preguntaId),
       },
-      include:{
-        testPreguntas:true
+      include: {
+        testPreguntas: true
       }
     });
   }
@@ -203,7 +203,13 @@ export class PreguntasService extends PaginatedService<Pregunta> {
           mode: 'insensitive',
         },
       },
-      { tema: true },
+      {
+        tema: {
+          include: {
+            modulo: true,
+          },
+        }
+      },
     );
   }
 
@@ -217,7 +223,13 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         },
         createdById: userId,
       },
-      { tema: true },
+      {
+        tema: {
+          include: {
+            modulo: true,
+          },
+        }
+      },
     );
   }
 
@@ -237,7 +249,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
       },
     });
     if (!user) throw new BadRequestException('Usuario no existe!');
-  
+
     //Auto generar identificador
     if (!dto.identificador)
       dto.identificador = await generarIdentificador(
@@ -348,10 +360,27 @@ export class PreguntasService extends PaginatedService<Pregunta> {
         continue; // Si ya existe, ignorar esta entrada y continuar con la siguiente
       }
 
+      let modulo = await this.prisma.modulo.findFirst({
+        where: {
+          nombre: entry['Categoría'],
+        },
+      });
+
+      if (!modulo) {
+        console.log(`Módulo con nombre ${entry['Categoría']} no encontrado. Creando nuevo módulo...`);
+        modulo = await this.prisma.modulo.create({
+          data: {
+            nombre: entry['Categoría'],
+            esPublico: true,
+            descripcion: 'Modulo de ' + entry['Categoría'],
+          },
+        });
+      }
+
       let temaExistente = await this.prisma.tema.findFirst({
         where: {
           numero: entry['Tema'] + '',
-          categoria: entry['Categoría'],
+          moduloId: modulo.id,
         },
       });
 
@@ -360,7 +389,7 @@ export class PreguntasService extends PaginatedService<Pregunta> {
           data: {
             numero: entry['Tema'] + '',
             descripcion: entry['Descripción Tema'],
-            categoria: entry['Categoría'],
+            moduloId: modulo.id,
           },
         });
       }

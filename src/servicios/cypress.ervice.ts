@@ -9,7 +9,7 @@ export class CypressService implements OnModuleInit {
     constructor(private prisma: PrismaService) { }
 
     async onModuleInit() {
-        await this.initializeTestUsers();
+        //await this.initializeTestUsers();
     }
 
     private async initializeTestUsers() {

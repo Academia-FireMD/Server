@@ -9,6 +9,7 @@ import {
   FlashcardData,
   FlashcardTest,
   FlashcardTestItem,
+  Modulo,
   Tema,
   TestStatus,
 } from '@prisma/client';
@@ -274,7 +275,11 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
             respuesta: true,
             flashcard: {
               include: {
-                tema: true,
+                tema: {
+                  include: {
+                    modulo: true,
+                  },
+                },
               },
             },
           },
@@ -597,7 +602,13 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
           mode: 'insensitive',
         },
       },
-      { tema: true },
+      {
+        tema: {
+          include: {
+            modulo: true,
+          },
+        }
+      },
     );
   }
 
@@ -611,7 +622,13 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         },
         createdById: userId,
       },
-      { tema: true },
+      {
+        tema: {
+          include: {
+            modulo: true,
+          },
+        }
+      },
     );
   }
 
@@ -672,7 +689,11 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
           include: {
             flashcard: {
               include: {
-                tema: true,
+                tema: {
+                  include: {
+                    modulo: true,
+                  },
+                },
               },
             },
           },
@@ -702,7 +723,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
   groupFlashcardsByCategory(
     flashcardTests: (FlashcardTest & {
       flashcards: (FlashcardTestItem & {
-        flashcard: FlashcardData & { tema: Tema };
+        flashcard: FlashcardData & { tema: Tema & { modulo: Modulo } };
       })[];
     })[],
   ) {
@@ -715,7 +736,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
       const categorias = new Set<string>();
 
       for (const flashcardTestItem of flashcardTest.flashcards) {
-        const categoria = flashcardTestItem.flashcard.tema.categoria;
+        const categoria = flashcardTestItem.flashcard.tema.modulo.nombre;
         categorias.add(categoria); // Añadimos la categoría al Set
       }
 
@@ -936,10 +957,27 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         continue; // Si ya existe, ignorar esta entrada y continuar con la siguiente
       }
 
+      let modulo = await this.prisma.modulo.findFirst({
+        where: {
+          nombre: entry['Categoría'],
+        },
+      });
+
+      if (!modulo) {
+        console.log(`Módulo con nombre ${entry['Categoría']} no encontrado. Creando nuevo módulo...`);
+        modulo = await this.prisma.modulo.create({
+          data: {
+            nombre: entry['Categoría'],
+            esPublico: true,
+            descripcion: 'Modulo de ' + entry['Categoría'],
+          },
+        });
+      }
+
       let temaExistente = await this.prisma.tema.findFirst({
         where: {
           numero: entry['Tema'] + '',
-          categoria: entry['Categoría'],
+          moduloId: modulo.id,
         },
       });
 
@@ -948,7 +986,7 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
           data: {
             numero: entry['Tema'] + '',
             descripcion: entry['Descripción Tema'],
-            categoria: entry['Categoría'],
+            moduloId: modulo.id,
           },
         });
       }
@@ -1013,7 +1051,11 @@ export class FlashcardTestService extends PaginatedService<FlashcardTest> {
       include: {
         flashcard: {
           include: {
-            tema: true,
+            tema: {
+              include: {
+                modulo: true,
+              },
+            },
           },
         },
       },
@@ -1052,7 +1094,7 @@ export class FlashcardTestService extends PaginatedService<FlashcardTest> {
         if (res.data.length == 0) return of(res);
         // Usar Promise.all para mantener el orden
         return from(Promise.all(
-          res.data.map(entry => 
+          res.data.map(entry =>
             this.flashcardService.obtainFlashcardTestStats(entry.realizadorId, entry.id)
               .then(stats => ({
                 ...entry,
@@ -1091,7 +1133,7 @@ export class FlashcardTestService extends PaginatedService<FlashcardTest> {
         if (res.data.length == 0) return of(res);
         // Usar Promise.all para mantener el orden
         return from(Promise.all(
-          res.data.map(entry => 
+          res.data.map(entry =>
             this.flashcardService.obtainFlashcardTestStats(entry.realizadorId, entry.id)
               .then(stats => ({
                 ...entry,
