@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PaginationDto } from 'src/dtos/pagination.dto';
 import { CloudinaryProvider } from 'src/providers/cloudinary.provider';
 import { PaginatedService } from './paginated.service';
@@ -25,31 +25,41 @@ export class DocumentosService extends PaginatedService<Document> {
     usuarioId?: number,
   ) {
     const folder = 'academia/documentos';
-    const uploadResult = await this.cloudinary.uploadFile(file, folder);
+    if (identificador) {
+      const documentoExistente = await this.prisma.documento.findUnique({
+        where: { identificador },
+      });
+      if (documentoExistente) {
+        throw new BadRequestException('El identificador ya está en uso.');
+      }
+    }
 
-    // Guarda la referencia en la base de datos
+    const secureUrl = await this.cloudinary.uploadFile(file, folder);
     const documento = await this.prisma.documento.create({
       data: {
         identificador,
         descripcion,
-        url: uploadResult.secure_url,
+        url: secureUrl,
+        fileName: file.originalname,
         esPublico: Boolean(esPublico),
         createdById: Number(usuarioId),
         updatedById: Number(usuarioId),
       },
     });
-
     return documento;
   }
 
+
   async listarDocumentosPublicos(dto: PaginationDto) {
-    return this.getPaginatedData(dto, {
+    const result = await this.getPaginatedData(dto, {
       identificador: {
         contains: dto.searchTerm ?? '',
         mode: 'insensitive',
       },
       esPublico: true,
     });
+
+    return result;
   }
 
   async eliminarDocumento(id: number) {

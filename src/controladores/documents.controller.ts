@@ -1,13 +1,13 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Param,
-    Post,
-    Request,
-    UploadedFile,
-    UseGuards,
-    UseInterceptors,
+  Body,
+  Controller,
+  Delete,
+  Param,
+  Post,
+  Request,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Rol } from '@prisma/client';
@@ -18,7 +18,7 @@ import { DocumentosService } from 'src/servicios/documents.service';
 @Controller('documentos')
 @UseGuards(RolesGuard)
 export class DocumentosController {
-  constructor(private readonly documentosService: DocumentosService) {}
+  constructor(private readonly documentosService: DocumentosService) { }
 
   @Post('upload')
   @Roles(Rol.ADMIN)
@@ -51,4 +51,5 @@ export class DocumentosController {
   async eliminarDocumento(@Param('id') id: number) {
     return this.documentosService.eliminarDocumento(id);
   }
+
 }

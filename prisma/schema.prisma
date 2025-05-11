@@ -375,7 +375,6 @@ model Documento {
   descripcion   String?
   url           String // URL donde se hospeda el documento
   esPublico     Boolean @default(true) // Indica si es público o privado
-
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
@@ -387,6 +386,7 @@ model Documento {
 
   asignadoA Usuario? @relation("DocumentosAsignados", fields: [usuarioId], references: [id], onDelete: SetNull)
   usuarioId Int?
+  fileName String?
 }
 
 enum FactorName {
