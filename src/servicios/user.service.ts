@@ -19,6 +19,12 @@ export class UsersService extends PaginatedService<Usuario> {
     super(prisma);
   }
 
+  async getUserById(id: number) {
+    return this.prisma.usuario.findUnique({
+      where: { id },
+    });
+  }
+
   async uploadAvatar(file: Express.Multer.File, usuarioId: number) {
     const folder = 'academia/avatares';
     const uploadResult = await this.cloudinary.uploadFile(file, folder);
@@ -134,6 +140,7 @@ export class UsersService extends PaginatedService<Usuario> {
       },
       data: {
         validated: true,
+        validatedAt: new Date(),
       },
     });
     return updatedUser.id;

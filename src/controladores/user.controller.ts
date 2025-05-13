@@ -86,4 +86,11 @@ export class UserController {
     if (!id) throw new BadRequestException('Id es necesario!');
     return this.usersService.updateUser(Number(id), updateUserDto);
   }
+
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  @Get('me')
+  async getUserById(@Request() req) {
+    const { id } = req.user;
+    return this.usersService.getUserById(Number(id));
+  }
 }
