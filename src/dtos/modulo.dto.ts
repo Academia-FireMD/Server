@@ -17,6 +17,13 @@ export class CreateModuloDto {
   @IsOptional()
   @IsBoolean({ message: 'El campo esPublico debe ser un booleano.' })
   esPublico?: boolean;
+
+  @IsOptional()
+  @IsString({ message: 'El identificador del módulo debe ser una cadena de texto.' })
+  @MaxLength(10, {
+    message: 'El identificador del módulo no puede tener más de 10 caracteres.',
+  })
+  identificadorModulo?: string;
 }
 
 export class UpdateModuloDto extends CreateModuloDto {

@@ -89,6 +89,7 @@ export class ModuloService extends PaginatedService<Modulo> {
           nombre: dto.nombre,
           descripcion: dto.descripcion,
           esPublico: dto.esPublico,
+          identificadorModulo: dto.identificadorModulo,
         },
         include: {
           _count: {
@@ -102,6 +103,7 @@ export class ModuloService extends PaginatedService<Modulo> {
           nombre: dto.nombre,
           descripcion: dto.descripcion,
           esPublico: dto.esPublico,
+          identificadorModulo: dto.identificadorModulo,
         },
         include: {
           _count: {

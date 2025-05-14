@@ -99,13 +99,14 @@ export const generarIdentificador = async (
       id: temaId,
     },
     include: {
-      modulo: true,
+      modulo: true
     },
   });
   if (!foundTema) throw new BadRequestException('Tema no existe!');
+  if (!foundTema.modulo) throw new BadRequestException('Tema no tiene módulo asignado!');
   
   const firstChar = type == 'FLASHCARD' ? 'F' : 'T';
-  const secondChar = foundTema.modulo.nombre.charAt(0);
+  const secondChar = foundTema.modulo.identificadorModulo || foundTema.modulo.nombre.charAt(0);
   const thirdChar = rol == Rol.ALUMNO ? 'A' : '';
   const forthChar = foundTema.numero;
   const fifthChar = esTipoExamen ? 'E' : '';
