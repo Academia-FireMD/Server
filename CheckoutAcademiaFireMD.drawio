@@ -1,0 +1,137 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36" version="27.0.5">
+  <diagram name="Página-1" id="MWSDEjWA8uJwiSsbCQgt">
+    <mxGraphModel dx="6064" dy="3092" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-40" value="Cliente Selecciona Método de Pago" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-430" y="-950" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-41" value="¿Pago es Correcto?" style="rhombus;strokeWidth=2;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="-470" y="-822" width="186" height="186" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-42" value="Generar Suscripción en WooCommerce" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-657" y="-564" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-43" value="Mostrar Mensaje de Error" style="whiteSpace=wrap;strokeWidth=2;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="-342" y="-552" width="240" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-44" value="Webhook de Notificación a Backend NestJS" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-657" y="-436" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-45" value="Backend Procesa la Suscripción" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-657" y="-308" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-67" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-46" target="BCZ2_lT55CLSQKJpZleH-65">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-46" value="Notificar Cliente Sobre suscripción Activa" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-812" y="-180" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-47" value="Cliente Puede Intentar Nuevamente" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-275" y="-436" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-48" value="Webhook de Actualización de Estado" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-502" y="-180" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-49" value="Actualizar Estado de Suscripción en WooCommerce" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-502" y="-52" width="260" height="102" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-50" value="Fin del Proceso de Checkout" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-502" y="100" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-51" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.32;exitY=0.99;entryX=0.5;entryY=0;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-40" target="BCZ2_lT55CLSQKJpZleH-41">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-377" y="-847" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-52" value="Sí" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.93;entryX=0.5;entryY=0.01;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-41" target="BCZ2_lT55CLSQKJpZleH-42">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-527" y="-600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-53" value="No" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.91;entryX=0.5;entryY=0.01;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-41" target="BCZ2_lT55CLSQKJpZleH-43">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-222" y="-600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-54" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1.01;entryX=0.5;entryY=0.01;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-42" target="BCZ2_lT55CLSQKJpZleH-44">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-55" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1.01;entryX=0.5;entryY=0.01;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-44" target="BCZ2_lT55CLSQKJpZleH-45">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-56" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.14;exitY=1.01;entryX=0.5;entryY=0.01;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-45" target="BCZ2_lT55CLSQKJpZleH-46">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-682" y="-205" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-57" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1.01;entryX=0.32;entryY=0.01;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-43" target="BCZ2_lT55CLSQKJpZleH-47">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-222" y="-461" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-58" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.68;exitY=0.01;entryX=1;entryY=0.95;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-47" target="BCZ2_lT55CLSQKJpZleH-40">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-67" y="-461" />
+              <mxPoint x="-67" y="-847" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-59" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.86;exitY=1.01;entryX=0.5;entryY=0.01;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-45" target="BCZ2_lT55CLSQKJpZleH-48">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-372" y="-205" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-60" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1.01;entryX=0.5;entryY=0;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-48" target="BCZ2_lT55CLSQKJpZleH-49">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-61" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0.01;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-49" target="BCZ2_lT55CLSQKJpZleH-50">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-63" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-62" target="BCZ2_lT55CLSQKJpZleH-40">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-62" value="Cliente rellena los datos necesarios" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-430" y="-1130" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-68" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-65" target="BCZ2_lT55CLSQKJpZleH-66">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-65" value="Enviar al cliente un email con un link para activar su cuenta" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-812" y="-52" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-70" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="BCZ2_lT55CLSQKJpZleH-66" target="BCZ2_lT55CLSQKJpZleH-69">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-66" value="Al activar su cuenta, lo llevará a la APP para que realice el registro. Los datos introducidos en el Wordpress se reutilizarán para autocompletar el formulario del registro. En la medida de lo posible" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="-812" y="100" width="260" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="BCZ2_lT55CLSQKJpZleH-69" value="Se autoaprueba su acceso y automaticamente accede a la plataforma!" style="whiteSpace=wrap;strokeWidth=2;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="-812" y="250" width="260" height="100" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
