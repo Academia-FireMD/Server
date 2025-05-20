@@ -739,8 +739,6 @@ export class TestService extends PaginatedService<Test> {
     });
   }
 
-
-
   public async startTest(
     userId: number,
     dto: NewTestDto,
@@ -781,7 +779,22 @@ export class TestService extends PaginatedService<Test> {
             'No tienes preguntas falladas para generar un test de repaso.',
           );
         }
-        preguntasDisponibles = fallos.map((fallo) => fallo.pregunta);
+
+        // Eliminar duplicados usando un Map para mantener la última instancia de cada pregunta
+        const uniquePreguntas = new Map<number, Pregunta>();
+        fallos.forEach(fallo => {
+          uniquePreguntas.set(fallo.pregunta.id, fallo.pregunta);
+        });
+        const preguntasUnicas = Array.from(uniquePreguntas.values());
+
+        // Barajar el array usando Fisher-Yates
+        for (let i = preguntasUnicas.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [preguntasUnicas[i], preguntasUnicas[j]] = [preguntasUnicas[j], preguntasUnicas[i]];
+        }
+
+        // Tomar solo el número de preguntas solicitado
+        preguntasDisponibles = preguntasUnicas.slice(0, dto.numPreguntas);
       } else {
         preguntasDisponibles = await this.preguntasService.generarPreguntasTest(dto, userId, userComunidad, prisma as PrismaClient);
       }
@@ -818,5 +831,4 @@ export class TestService extends PaginatedService<Test> {
     const testConPreguntas = await this.getTestById(test.id, userId);
     return testConPreguntas;
   }
-
 }

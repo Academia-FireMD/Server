@@ -376,7 +376,21 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
         );
       }
 
-      flashcardsDisponibles = flashcardsMalYRevisar;
+      // Eliminar duplicados usando un Map para mantener la última instancia de cada flashcard
+      const uniqueFlashcards = new Map<number, FlashcardData>();
+      flashcardsMalYRevisar.forEach(fc => {
+        uniqueFlashcards.set(fc.id, fc);
+      });
+      const flashcardsUnicas = Array.from(uniqueFlashcards.values());
+
+      // Barajar el array usando Fisher-Yates
+      for (let i = flashcardsUnicas.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [flashcardsUnicas[i], flashcardsUnicas[j]] = [flashcardsUnicas[j], flashcardsUnicas[i]];
+      }
+
+      // Tomar solo el número de flashcards solicitado
+      flashcardsDisponibles = flashcardsUnicas.slice(0, numPreguntas);
     } else {
       // Para un test normal (no de repaso), selecciona las flashcards basadas en temas y dificultades
       const dificultades = dto.dificultades;
