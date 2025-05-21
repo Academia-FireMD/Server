@@ -770,6 +770,11 @@ export class TestService extends PaginatedService<Test> {
               status: 'FINALIZADO',
             },
             esCorrecta: false,
+            pregunta: {
+              temaId: {
+                in: dto.temas
+              }
+            }
           },
           include: { pregunta: true },
         });
