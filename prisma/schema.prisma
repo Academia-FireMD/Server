@@ -511,17 +511,27 @@ model EventoPersonalizadoAlumno {
 }
 
 model RegistroTemporal {
-  id                Int       @id @default(autoincrement())
-  token             String    @unique
-  email             String
-  nombre            String?
-  apellidos         String?
-  woocommerceCustomerId String
-  planType          SuscripcionTipo
-  sku               String?
-  productId         String?
-  monthlyPrice      Float?
-  createdAt         DateTime  @default(now())
-  expiresAt         DateTime
-  used              Boolean   @default(false)
+  id                       Int             @id @default(autoincrement())
+  token                    String          @unique
+  email                    String
+  nombre                   String?
+  apellidos                String?
+  woocommerceCustomerId    String
+  planType                 SuscripcionTipo
+  sku                      String?
+  productId                String?
+  monthlyPrice            Float?
+  
+  // Campos adicionales de suscripción
+  subscriptionId          String?         // ID de la suscripción en WooCommerce
+  subscriptionStatus      String?         // Estado de la suscripción en WooCommerce
+  subscriptionStartDate   DateTime?       // Fecha de inicio de la suscripción
+  subscriptionEndDate     DateTime?       // Fecha de fin de la suscripción
+  subscriptionInterval    String?         // Intervalo de la suscripción (month, year, etc)
+  isOfferPlan            Boolean         @default(false)
+  offerDuration          Int?            // Duración de la oferta en meses (si aplica)
+  
+  createdAt               DateTime        @default(now())
+  expiresAt               DateTime        // Cuando expira el registro temporal
+  used                    Boolean         @default(false)
 }

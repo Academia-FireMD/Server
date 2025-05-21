@@ -135,8 +135,9 @@ export class AuthService {
 
     // Si hay un woocommerceCustomerId, verificar y validar el registro temporal
     let registroConSuscripcion = false;
+    let registroTemporal = null;
     if (woocommerceCustomerId) {
-      const registroTemporal = await this.getAndInvalidateRegistroTemporal(email, woocommerceCustomerId);
+      registroTemporal = await this.getAndInvalidateRegistroTemporal(email, woocommerceCustomerId);
       if (!registroTemporal) {
         throw new BadRequestException('No se encontró un registro temporal válido para este usuario');
       }
@@ -144,7 +145,7 @@ export class AuthService {
     }
 
     // Proceder con el registro
-    await this.usersService.createUser(
+    const newUser = await this.usersService.createUser(
       email,
       password,
       comunidad,
@@ -153,6 +154,25 @@ export class AuthService {
       tutorId,
       registroConSuscripcion,
     );
+
+    // Si tenemos registro temporal, crear la suscripción
+    if (registroTemporal) {
+      await this.prisma.suscripcion.create({
+        data: {
+          usuarioId: newUser.id,
+          tipo: registroTemporal.planType,
+          fechaInicio: registroTemporal.subscriptionStartDate || new Date(),
+          fechaFin: registroTemporal.subscriptionEndDate,
+          woocommerceSubscriptionId: registroTemporal.subscriptionId,
+          sku: registroTemporal.sku,
+          productId: registroTemporal.productId,
+          monthlyPrice: registroTemporal.monthlyPrice,
+          status: registroTemporal.subscriptionStatus || 'active',
+          isOfferPlan: registroTemporal.isOfferPlan,
+          offerDuration: registroTemporal.offerDuration
+        }
+      });
+    }
 
     return { message: 'Usuario registrado exitosamente' };
   }

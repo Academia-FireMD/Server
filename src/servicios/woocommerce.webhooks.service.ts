@@ -110,6 +110,13 @@ export class WooCommerceWebhooksService {
           sku: sku,
           productId: firstItem.product_id.toString(),
           monthlyPrice: price,
+          subscriptionId: data.id.toString(),
+          subscriptionStatus: status,
+          subscriptionStartDate: new Date(data.start_date_gmt),
+          subscriptionEndDate: status === 'active' ? new Date(data.next_payment_date_gmt) : null,
+          subscriptionInterval: data.billing_period || 'month',
+          isOfferPlan: subscriptionInfo.isOffer,
+          offerDuration: subscriptionInfo.duration,
           expiresAt: addHours(new Date(), 24) // El registro expira en 24 horas
         }
       });
