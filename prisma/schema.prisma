@@ -243,6 +243,7 @@ model Usuario {
   resetPasswordToken                 String?
   resetPasswordExpires               DateTime?
   avatarUrl                          String?
+  woocommerceCustomerId             String?                    @unique // Added for WooCommerce integration
 
   // Relación tutor-alumno
   tutorId Int? // Clave foránea opcional
@@ -444,18 +445,29 @@ model Examen {
 }
 
 enum SuscripcionTipo {
-  PRO
-  NORMAL
-  INDIVIDUAL
+  PRO //deprecated => PREMIUM
+  NORMAL // deprecated => ADVANCED
+  INDIVIDUAL //deprecated => BASIC
+  
+  PREMIUM     // Plan Premium
+  ADVANCED    // Plan Avanzado
+  BASIC       // Plan Básico
 }
 
 model Suscripcion {
-  id          Int       @id @default(autoincrement())
-  usuario     Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  usuarioId   Int       @unique // Añadido @unique para garantizar relación 1:1
-  tipo        SuscripcionTipo
-  fechaInicio DateTime  @default(now())
-  fechaFin    DateTime?
+  id                       Int             @id @default(autoincrement())
+  usuario                  Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId                Int             @unique // Relación 1:1
+  tipo                     SuscripcionTipo
+  fechaInicio              DateTime        @default(now())
+  fechaFin                 DateTime?
+  woocommerceSubscriptionId String?        @unique // ID de la suscripción en WooCommerce
+  sku                      String?         // SKU del producto en WooCommerce
+  productId                String?         // ID del producto en WooCommerce
+  isOfferPlan             Boolean         @default(false) // Indica si es un plan de oferta
+  offerDuration           Int?            // Duración de la oferta en meses (si aplica)
+  monthlyPrice            Float?          // Precio mensual
+  status                  String?         // Estado de la suscripción en WooCommerce
 
   // Para suscripciones individuales a exámenes
   examenId Int?
@@ -496,4 +508,20 @@ model EventoPersonalizadoAlumno {
   
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
+}
+
+model RegistroTemporal {
+  id                Int       @id @default(autoincrement())
+  token             String    @unique
+  email             String
+  nombre            String?
+  apellidos         String?
+  woocommerceCustomerId String
+  planType          SuscripcionTipo
+  sku               String?
+  productId         String?
+  monthlyPrice      Float?
+  createdAt         DateTime  @default(now())
+  expiresAt         DateTime
+  used              Boolean   @default(false)
 }

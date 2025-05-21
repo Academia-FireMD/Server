@@ -17,6 +17,7 @@ import { ReporteFalloController } from './controladores/reporte-fallos.controlle
 import { TemaController } from './controladores/tema.controller';
 import { TestController } from './controladores/test.controller';
 import { UserController } from './controladores/user.controller';
+import { WooCommerceWebhooksController } from './controladores/woocommerce.webhooks.controller';
 import { JwtStrategy } from './jwt/jwt.strategy';
 import { CloudinaryProvider } from './providers/cloudinary.provider';
 import { AuthService } from './servicios/auth.service';
@@ -48,6 +49,7 @@ import {
   TestService,
 } from './servicios/test.service';
 import { UsersService } from './servicios/user.service';
+import { WooCommerceWebhooksService } from './servicios/woocommerce.webhooks.service';
 @Module({
   imports: [
     PassportModule,
@@ -70,7 +72,8 @@ import { UsersService } from './servicios/user.service';
     PlanificacionController,
     DocumentosController,
     ExamenController,
-    ModuloController
+    ModuloController,
+    WooCommerceWebhooksController
   ],
   providers: [
     ConfigService,
@@ -99,7 +102,8 @@ import { UsersService } from './servicios/user.service';
     CypressService,
     NotificacionesService,
     ExamenService,
-    ModuloService
+    ModuloService,
+    WooCommerceWebhooksService
   ],
 })
 export class AppModule {

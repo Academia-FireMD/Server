@@ -1,4 +1,4 @@
-import { Comunidad } from '@prisma/client';
+import { Comunidad, SuscripcionTipo } from '@prisma/client';
 import {
   IsEmail,
   IsEnum,
@@ -9,6 +9,7 @@ import {
   Matches,
   MinLength
 } from 'class-validator';
+
 
 export class RegisterDto {
   @IsEmail({}, { message: 'El correo electrónico no es válido' })
@@ -43,4 +44,15 @@ export class RegisterDto {
   @IsOptional()
   @IsInt({ message: 'El ID del tutor debe ser un número entero' })
   tutorId?: number;
+
+  // Campos relacionados con la suscripción
+  @IsOptional()
+  @IsString({ message: 'El ID de cliente de WooCommerce debe ser una cadena de texto' })
+  woocommerceCustomerId?: string;
+
+  @IsOptional()
+  @IsEnum(SuscripcionTipo, {
+    message: 'El tipo de plan seleccionado no es válido',
+  })
+  planType?: SuscripcionTipo;
 }

@@ -11,13 +11,17 @@ export class NotificacionesService {
     constructor(
         private prisma: PrismaService,
         private emailService: EmailService,
-    ) { 
+    ) {
 
 
     }
 
     @Cron('* * * * *') // Ejecutar cada minuto
     async checkEventosParaNotificar() {
+        if (process.env.NODE_ENV != 'production') {
+            this.logger.debug('NotificacionesService: Notificaciones desactivadas en modo de desarrollo');
+            return;
+        }
         this.logger.debug('Comprobando eventos para notificar...');
 
         const ahora = new Date();
@@ -44,7 +48,7 @@ export class NotificacionesService {
                     },
                 },
             },
-        }).then(eventos => eventos.filter(evento => 
+        }).then(eventos => eventos.filter(evento =>
             evento.planificacion?.asignaciones?.length > 0
         ));
 
@@ -77,7 +81,7 @@ export class NotificacionesService {
                         }
                     }
                 }
-                
+
                 // Marcar como notificado sin importar el alumno (se notifica a todos)
                 await this.prisma.subBloque.update({
                     where: { id: evento.id },

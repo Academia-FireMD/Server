@@ -944,7 +944,7 @@ export class ExamenService extends PaginatedService<Examen> {
         };
 
         // Si es una suscripción individual, solo mostrar ese examen específico
-        if (suscripcion.tipo === 'INDIVIDUAL' && suscripcion.examenId) {
+        if (suscripcion.tipo === 'BASIC' && suscripcion.examenId) {
             return this.getPaginatedData(
                 dto,
                 {
@@ -961,9 +961,9 @@ export class ExamenService extends PaginatedService<Examen> {
             );
         }
 
-        // Para suscripciones PRO o NORMAL, mostrar todos los exámenes disponibles
-        // PRO puede ver todos, NORMAL solo los públicos
-        const tipoAccesoFilter = suscripcion.tipo === 'PRO'
+        // Para suscripciones PREMIUM o ADVANCED, mostrar todos los exámenes disponibles
+        // PREMIUM puede ver todos, ADVANCED solo los públicos
+        const tipoAccesoFilter = suscripcion.tipo === 'PREMIUM'
             ? {}
             : { tipoAcceso: TipoAcceso.PUBLICO };
 
@@ -1005,7 +1005,7 @@ export class ExamenService extends PaginatedService<Examen> {
                 throw new BadRequestException('No tienes una suscripción activa');
             }
 
-            const tieneAcceso = suscripcion.tipo == 'PRO' || (suscripcion.tipo == 'NORMAL' && suscripcion.examenId == examenId);
+            const tieneAcceso = suscripcion.tipo == 'PREMIUM' || (suscripcion.tipo == 'ADVANCED' && suscripcion.examenId == examenId);
 
             if (!tieneAcceso) {
                 throw new BadRequestException('No tienes acceso a este examen');

@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Usuario } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
+import { RegisterDto } from 'src/dtos/register.dto';
 import { EmailService } from './email.service';
 import { PrismaService } from './prisma.service';
 import { UsersService } from './user.service';
@@ -70,6 +71,14 @@ export class AuthService {
     };
   }
 
+  async registroTemporal(token: string) {
+    const registroTemporal = await this.prisma.registroTemporal.findUnique({ where: { token } });
+    if (!registroTemporal) {
+      throw new NotFoundException('Registro temporal no encontrado');
+    }
+    return registroTemporal;
+  }
+
   async requestPasswordReset(email: string): Promise<void> {
     const user = await this.prisma.usuario.findUnique({ where: { email } });
     if (!user) {
@@ -119,5 +128,58 @@ export class AuthService {
         resetPasswordExpires: null,
       },
     });
+  }
+
+  async register(registerDto: RegisterDto) {
+    const { email, password, comunidad, nombre, apellidos, tutorId, woocommerceCustomerId } = registerDto;
+
+    // Si hay un woocommerceCustomerId, verificar y validar el registro temporal
+    let registroConSuscripcion = false;
+    if (woocommerceCustomerId) {
+      const registroTemporal = await this.getAndInvalidateRegistroTemporal(email, woocommerceCustomerId);
+      if (!registroTemporal) {
+        throw new BadRequestException('No se encontró un registro temporal válido para este usuario');
+      }
+      registroConSuscripcion = true;
+    }
+
+    // Proceder con el registro
+    await this.usersService.createUser(
+      email,
+      password,
+      comunidad,
+      nombre,
+      apellidos,
+      tutorId,
+      registroConSuscripcion,
+    );
+
+    return { message: 'Usuario registrado exitosamente' };
+  }
+
+  private async getAndInvalidateRegistroTemporal(email: string, woocommerceCustomerId: string) {
+    // Buscar el registro temporal que coincida con el email y woocommerceCustomerId
+    const registroTemporal = await this.prisma.registroTemporal.findFirst({
+      where: {
+        email: email,
+        woocommerceCustomerId: woocommerceCustomerId,
+        expiresAt: {
+          gt: new Date() // Asegurarse de que no ha expirado
+        }
+      }
+    });
+
+    if (!registroTemporal) {
+      return null;
+    }
+
+    // Invalidar el registro temporal eliminándolo
+    await this.prisma.registroTemporal.delete({
+      where: {
+        id: registroTemporal.id
+      }
+    });
+
+    return registroTemporal;
   }
 }

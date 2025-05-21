@@ -19,7 +19,14 @@ import { UsersService } from 'src/servicios/user.service';
 @Controller('user')
 @UseGuards(RolesGuard)
 export class UserController {
-  constructor(private usersService: UsersService) {}
+  constructor(private usersService: UsersService) { }
+
+  @Get('profile')
+  @Roles(Rol.ADMIN, Rol.ALUMNO)
+  async getUserProfile(@Request() req) {
+    const { id } = req.user;
+    return this.usersService.getUserProfile(Number(id));
+  }
 
   @Post('upload-avatar')
   @Roles(Rol.ADMIN, Rol.ALUMNO)

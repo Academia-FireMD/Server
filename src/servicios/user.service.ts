@@ -19,6 +19,15 @@ export class UsersService extends PaginatedService<Usuario> {
     super(prisma);
   }
 
+  async getUserProfile(id: number) {
+    return this.prisma.usuario.findUnique({
+      where: { id },
+      include: {
+        suscripcion: true,
+      },
+    });
+  }
+
   async getUserById(id: number) {
     return this.prisma.usuario.findUnique({
       where: { id },
@@ -27,8 +36,7 @@ export class UsersService extends PaginatedService<Usuario> {
 
   async uploadAvatar(file: Express.Multer.File, usuarioId: number) {
     const folder = 'academia/avatares';
-    const uploadResult = await this.cloudinary.uploadFile(file, folder);
-
+    const secureUrl = await this.cloudinary.uploadFile(file, folder);
     // Guarda la referencia en la base de datos
     if (!usuarioId)
       throw new BadRequestException('Debe existir un usuario seleccionado!');
@@ -37,7 +45,7 @@ export class UsersService extends PaginatedService<Usuario> {
         id: usuarioId,
       },
       data: {
-        avatarUrl: uploadResult.secure_url,
+        avatarUrl: secureUrl,
       },
     });
 
@@ -51,6 +59,7 @@ export class UsersService extends PaginatedService<Usuario> {
     nombre: string,
     apellidos: string,
     tutorId: number,
+    validated: boolean = false,
   ): Promise<Usuario> {
     const foundEmail = await this.prisma.usuario.findUnique({
       where: {
@@ -73,6 +82,8 @@ export class UsersService extends PaginatedService<Usuario> {
         nombre,
         apellidos,
         tutorId,
+        validated,
+        validatedAt: validated ? new Date() : null,
       },
     });
   }

@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { SuscripcionTipo } from '@prisma/client';
 import * as sgMail from '@sendgrid/mail';
 import * as MarkdownIt from 'markdown-it';
+import { dateFormatter } from 'src/utils/utils';
 
 @Injectable()
 export class EmailService {
@@ -69,6 +71,88 @@ export class EmailService {
       return res;
     } catch (error) {
       console.error('Error al enviar email:', error.response?.body || error);
+      throw error;
+    }
+  }
+
+  async sendSubscriptionActivationEmail(to: string, data: {
+    tempToken: string;
+    planType: SuscripcionTipo;
+    cartData: any;
+    nombre: string;
+  }): Promise<any> {
+    try {
+      const activationLink = `${process.env.HOST_FRONT}/auth/activate-subscription?token=${data.tempToken}`;
+
+      const msg = {
+        to,
+        from: 'info@academiafiremd.com',
+        templateId: 'd-c360e4fe5f2146a49f5f1104e5e11acd',
+        dynamicTemplateData: {
+          nombre: data.nombre,
+          activation_link: activationLink,
+          plan_type: data.planType,
+          price: data.cartData.price?.toFixed(2) || '0.00',
+          productName: data.cartData.productName || 'Plan Academia FireMD',
+        },
+      };
+
+      const res = await sgMail.send(msg);
+      return res;
+    } catch (error) {
+      console.error('Error al enviar email de activación:', error.response?.body || error);
+      throw error;
+    }
+  }
+
+  async sendSubscriptionRenewalEmail(to: string, data: {
+    planType: SuscripcionTipo;
+    nextBillingDate: Date;
+    price: number;
+    nombre: string;
+  }): Promise<any> {
+    try {
+      const msg = {
+        to,
+        from: 'info@academiafiremd.com',
+        templateId: 'd-fb1f3bd39d7b4182b5d7cde463ffffa7',
+        dynamicTemplateData: {
+          nombre: data.nombre,
+          plan_type: data.planType,
+          next_billing_date: dateFormatter.format(data.nextBillingDate),
+          price: data.price.toFixed(2)
+        },
+      };
+
+      const res = await sgMail.send(msg);
+      return res;
+    } catch (error) {
+      console.error('Error al enviar email de renovación:', error.response?.body || error);
+      throw error;
+    }
+  }
+
+  async sendSubscriptionCancelledEmail(to: string, data: {
+    planType: SuscripcionTipo;
+    endDate: Date;
+    nombre: string;
+  }): Promise<any> {
+    try {
+      const msg = {
+        to,
+        from: 'info@academiafiremd.com',
+        templateId: 'd-3ebbdf950a2a4007baeb2948bd2211fe',
+        dynamicTemplateData: {
+          nombre: data.nombre,
+          plan_type: data.planType,
+          end_date: dateFormatter.format(data.endDate)
+        },
+      };
+
+      const res = await sgMail.send(msg);
+      return res;
+    } catch (error) {
+      console.error('Error al enviar email de cancelación:', error.response?.body || error);
       throw error;
     }
   }

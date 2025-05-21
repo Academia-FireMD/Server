@@ -2,8 +2,10 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
+  Param,
   Post,
-  UnauthorizedException,
+  UnauthorizedException
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { validate } from 'class-validator';
@@ -20,17 +22,8 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  async register(@Body() body: RegisterDto) {
-    const { email, password, comunidad, nombre, apellidos, tutorId } = body;
-    await this.usersService.createUser(
-      email,
-      password,
-      comunidad,
-      nombre,
-      apellidos,
-      tutorId,
-    );
-    return { message: 'Usuario registrado exitosamente' };
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
   }
 
   @Post('login')
@@ -50,6 +43,11 @@ export class AuthController {
     //   );
     // }
     return this.authService.login(user);
+  }
+
+  @Get('registro-temporal/:token')
+  async registroTemporal(@Param('token') token: string) {
+    return this.authService.registroTemporal(token);
   }
 
   @Post('request-password-reset')
