@@ -1202,7 +1202,6 @@ export class ExamenService extends PaginatedService<Examen> {
                 this.prisma,
                 true
             );
-            console.log(initialIdentificador, pregunta.identificador);
             const nuevaPregunta = await this.prisma.pregunta.create({ data: pregunta });
             preguntasNuevasCreadas.push(nuevaPregunta);
         }

@@ -714,10 +714,8 @@ export class TestService extends PaginatedService<Test> {
       });
 
       const testCompletado = totalRespuestas === totalPreguntas;
-      console.log(`Test ${dto.testId}: ${totalRespuestas}/${totalPreguntas} respuestas. Completado: ${testCompletado}`);
       
       if (testCompletado) {
-        console.log(`Finalizando test ${dto.testId} automáticamente`);
         await prisma.test.update({
           where: {
             id: dto.testId,
