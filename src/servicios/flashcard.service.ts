@@ -144,126 +144,132 @@ export class FlashcardService extends PaginatedService<FlashcardData> {
     dto: RegistrarRespuestaFlashcardDto, // DTO adaptado para flashcards,
     usuarioId: number,
   ) {
-    // Obtener el test de flashcards
-    const flashcardTest = await this.prisma.flashcardTest.findUnique({
-      where: { id: dto.testId },
-    });
-
-    // Cambiar el estado del test a 'EMPEZADO' si estaba en 'CREADO'
-    if (flashcardTest.status === 'CREADO') {
-      await this.prisma.flashcardTest.update({
-        where: {
-          id: dto.testId,
-        },
-        data: {
-          status: 'EMPEZADO',
-        },
+    return this.prisma.$transaction(async (prisma) => {
+      // Obtener el test de flashcards
+      const flashcardTest = await prisma.flashcardTest.findUnique({
+        where: { id: dto.testId },
       });
-    }
 
-    // Crear la respuesta para la flashcard con el estado seleccionado (BIEN, MAL, REVISAR)
-    const respuestaFlashcard = await this.prisma.flashcardRespuesta.create({
-      data: {
-        testItemId: dto.testItemId, // ID de la relación FlashcardTestItem
-        flashcardId: dto.flashcardId,
-        estado: dto.estado, // El estado será BIEN, MAL o REVISAR
-      },
-    });
-
-    // Obtener factores (mal pivot y repasar pivot)
-    const factorMalPivot = await this.prisma.factor.findUnique({
-      where: { id: FactorName.FLASHCARDS_MAL_PRIVOT },
-    });
-
-    const factorRepasarPivot = await this.prisma.factor.findUnique({
-      where: { id: FactorName.FLASHCARDS_REPASAR_PIVOT },
-    });
-
-    // Obtener las últimas respuestas correctas del alumno
-    const ultimasRespuestasCorrectas =
-      await this.prisma.flashcardRespuesta.findMany({
-        where: {
-          testItem: {
-            test: { realizadorId: usuarioId, status: TestStatus.FINALIZADO },
+      // Cambiar el estado del test a 'EMPEZADO' si estaba en 'CREADO'
+      if (flashcardTest.status === 'CREADO') {
+        await prisma.flashcardTest.update({
+          where: {
+            id: dto.testId,
           },
+          data: {
+            status: 'EMPEZADO',
+          },
+        });
+      }
+
+      // Crear la respuesta para la flashcard con el estado seleccionado (BIEN, MAL, REVISAR)
+      const respuestaFlashcard = await prisma.flashcardRespuesta.create({
+        data: {
+          testItemId: dto.testItemId, // ID de la relación FlashcardTestItem
           flashcardId: dto.flashcardId,
-          estado: EstadoFlashcard.BIEN,
+          estado: dto.estado, // El estado será BIEN, MAL o REVISAR
         },
-        orderBy: { createdAt: 'desc' },
-        take: Math.max(factorMalPivot.value, factorRepasarPivot.value), // Tomar el mayor valor de los dos factores
       });
 
-    const ultimasRespuestasCorrectasRepasar = ultimasRespuestasCorrectas.slice(
-      0,
-      factorRepasarPivot.value,
-    );
-    const todasCorrectasRepasar = ultimasRespuestasCorrectasRepasar.every(
-      (respuesta) => respuesta.estado === EstadoFlashcard.BIEN,
-    );
+      // Obtener factores (mal pivot y repasar pivot)
+      const factorMalPivot = await prisma.factor.findUnique({
+        where: { id: FactorName.FLASHCARDS_MAL_PRIVOT },
+      });
 
-    if (
-      todasCorrectasRepasar &&
-      ultimasRespuestasCorrectasRepasar.length === factorRepasarPivot.value
-    ) {
-      await this.prisma.flashcardRespuesta.deleteMany({
+      const factorRepasarPivot = await prisma.factor.findUnique({
+        where: { id: FactorName.FLASHCARDS_REPASAR_PIVOT },
+      });
+
+      // Obtener las últimas respuestas correctas del alumno
+      const ultimasRespuestasCorrectas =
+        await prisma.flashcardRespuesta.findMany({
+          where: {
+            testItem: {
+              test: { realizadorId: usuarioId, status: TestStatus.FINALIZADO },
+            },
+            flashcardId: dto.flashcardId,
+            estado: EstadoFlashcard.BIEN,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: Math.max(factorMalPivot.value, factorRepasarPivot.value), // Tomar el mayor valor de los dos factores
+        });
+
+      const ultimasRespuestasCorrectasRepasar = ultimasRespuestasCorrectas.slice(
+        0,
+        factorRepasarPivot.value,
+      );
+      const todasCorrectasRepasar = ultimasRespuestasCorrectasRepasar.every(
+        (respuesta) => respuesta.estado === EstadoFlashcard.BIEN,
+      );
+
+      if (
+        todasCorrectasRepasar &&
+        ultimasRespuestasCorrectasRepasar.length === factorRepasarPivot.value
+      ) {
+        await prisma.flashcardRespuesta.deleteMany({
+          where: {
+            testItem: { test: { realizadorId: usuarioId, status: 'FINALIZADO' } },
+            flashcardId: dto.flashcardId,
+            estado: 'REVISAR',
+          },
+        });
+      }
+
+      const ultimasRespuestasCorrectasMal = ultimasRespuestasCorrectas.slice(
+        0,
+        factorMalPivot.value,
+      );
+      const todasCorrectasMal = ultimasRespuestasCorrectasMal.every(
+        (respuesta) => respuesta.estado === 'BIEN',
+      );
+
+      if (
+        todasCorrectasMal &&
+        ultimasRespuestasCorrectasMal.length === factorMalPivot.value
+      ) {
+        await prisma.flashcardRespuesta.deleteMany({
+          where: {
+            testItem: { test: { realizadorId: usuarioId, status: 'FINALIZADO' } },
+            flashcardId: dto.flashcardId,
+            estado: 'MAL',
+          },
+        });
+      }
+
+      // Verificar si el test de flashcards está completo (dentro de la transacción)
+      const totalFlashcards = await prisma.flashcardTestItem.count({
         where: {
-          testItem: { test: { realizadorId: usuarioId, status: 'FINALIZADO' } },
-          flashcardId: dto.flashcardId,
-          estado: 'REVISAR',
-        },
-      });
-    }
-
-    const ultimasRespuestasCorrectasMal = ultimasRespuestasCorrectas.slice(
-      0,
-      factorMalPivot.value,
-    );
-    const todasCorrectasMal = ultimasRespuestasCorrectasMal.every(
-      (respuesta) => respuesta.estado === 'BIEN',
-    );
-
-    if (
-      todasCorrectasMal &&
-      ultimasRespuestasCorrectasMal.length === factorMalPivot.value
-    ) {
-      await this.prisma.flashcardRespuesta.deleteMany({
-        where: {
-          testItem: { test: { realizadorId: usuarioId, status: 'FINALIZADO' } },
-          flashcardId: dto.flashcardId,
-          estado: 'MAL',
-        },
-      });
-    }
-
-    const totalFlashcards = await this.prisma.flashcardTestItem.count({
-      where: {
-        testId: dto.testId,
-      },
-    });
-
-    // Contar el total de respuestas dadas en el test
-    const totalRespuestas = await this.prisma.flashcardRespuesta.count({
-      where: {
-        testItem: {
           testId: dto.testId,
         },
-      },
-    });
+      });
 
-    // Verificar si el test de flashcards está completo
-    const testCompletado = totalRespuestas === totalFlashcards;
-    if (testCompletado) {
-      await this.prisma.flashcardTest.update({
+      // Contar el total de respuestas dadas en el test
+      const totalRespuestas = await prisma.flashcardRespuesta.count({
         where: {
-          id: dto.testId,
-        },
-        data: {
-          status: 'FINALIZADO',
+          testItem: {
+            testId: dto.testId,
+          },
         },
       });
-    }
 
-    return respuestaFlashcard;
+      // Verificar si el test de flashcards está completo
+      const testCompletado = totalRespuestas === totalFlashcards;
+      console.log(`FlashcardTest ${dto.testId}: ${totalRespuestas}/${totalFlashcards} respuestas. Completado: ${testCompletado}`);
+      
+      if (testCompletado) {
+        console.log(`Finalizando flashcard test ${dto.testId} automáticamente`);
+        await prisma.flashcardTest.update({
+          where: {
+            id: dto.testId,
+          },
+          data: {
+            status: 'FINALIZADO',
+          },
+        });
+      }
+
+      return respuestaFlashcard;
+    });
   }
 
   public async getTestById(testId: number) {

@@ -571,61 +571,82 @@ export class TestService extends PaginatedService<Test> {
     dto: RegistrarRespuestaDto,
     usuarioId: number,
   ) {
-    const test = await this.prisma.test.findUnique({
-      where: { id: dto.testId },
-    });
-
-    if (this.examenTestHasExpired(test)) {
-      await this.prisma.test.update({
+    return this.prisma.$transaction(async (prisma) => {
+      const test = await prisma.test.findUnique({
         where: { id: dto.testId },
-        data: {
-          status: 'FINALIZADO',
-        },
       });
-      throw new BadRequestException('El tiempo del examen ha expirado.');
-    }
-    if (test.status == 'CREADO') {
-      await this.prisma.test.update({
-        where: {
-          id: dto.testId,
-        },
-        data: {
-          status: 'EMPEZADO',
-        },
-      });
-    }
 
-    const pregunta = await this.prisma.pregunta.findUnique({
-      where: { id: dto.preguntaId },
-    });
-
-    const esCorrecta = pregunta.respuestaCorrectaIndex === dto.respuestaDada;
-
-    const respuestaExistente = await this.prisma.respuesta.findFirst({
-      where: {
-        testId: dto.testId,
-        preguntaId: dto.preguntaId,
-        indicePregunta: dto.indicePregunta,
-      },
-    });
-    let respuesta: Respuesta = null;
-    if (!!respuestaExistente) {
-      //El usuario ha deseleccionado la respuesta
-      if (dto.respuestaDada == -1) {
-        respuesta = await this.prisma.respuesta.delete({
-          where: {
-            id: respuestaExistente.id,
+      if (this.examenTestHasExpired(test)) {
+        await prisma.test.update({
+          where: { id: dto.testId },
+          data: {
+            status: 'FINALIZADO',
           },
         });
-        respuesta.respuestaDada = -1;
-      } else {
-        respuesta = await this.prisma.respuesta.update({
+        throw new BadRequestException('El tiempo del examen ha expirado.');
+      }
+      if (test.status == 'CREADO') {
+        await prisma.test.update({
           where: {
-            id: respuestaExistente.id,
+            id: dto.testId,
           },
           data: {
+            status: 'EMPEZADO',
+          },
+        });
+      }
+
+      const pregunta = await prisma.pregunta.findUnique({
+        where: { id: dto.preguntaId },
+      });
+
+      const esCorrecta = pregunta.respuestaCorrectaIndex === dto.respuestaDada;
+
+      const respuestaExistente = await prisma.respuesta.findFirst({
+        where: {
+          testId: dto.testId,
+          preguntaId: dto.preguntaId,
+          indicePregunta: dto.indicePregunta,
+        },
+      });
+      let respuesta: Respuesta = null;
+      if (!!respuestaExistente) {
+        //El usuario ha deseleccionado la respuesta
+        if (dto.respuestaDada == -1) {
+          respuesta = await prisma.respuesta.delete({
+            where: {
+              id: respuestaExistente.id,
+            },
+          });
+          respuesta.respuestaDada = -1;
+        } else {
+          respuesta = await prisma.respuesta.update({
+            where: {
+              id: respuestaExistente.id,
+            },
+            data: {
+              respuestaDada: dto.respuestaDada,
+              esCorrecta: esCorrecta,
+              estado: dto.omitida ? 'OMITIDA' : 'RESPONDIDA', // Estado dependiendo de si se omitió o no
+              seguridad: dto.seguridad ?? SeguridadAlResponder.CIEN_POR_CIENTO,
+            },
+            include: {
+              pregunta: {
+                select: {
+                  respuestaCorrectaIndex: true,
+                },
+              },
+            },
+          });
+        }
+      } else {
+        respuesta = await prisma.respuesta.create({
+          data: {
+            testId: dto.testId,
+            preguntaId: dto.preguntaId,
             respuestaDada: dto.respuestaDada,
             esCorrecta: esCorrecta,
+            indicePregunta: dto.indicePregunta,
             estado: dto.omitida ? 'OMITIDA' : 'RESPONDIDA', // Estado dependiendo de si se omitió o no
             seguridad: dto.seguridad ?? SeguridadAlResponder.CIEN_POR_CIENTO,
           },
@@ -638,90 +659,77 @@ export class TestService extends PaginatedService<Test> {
           },
         });
       }
-    } else {
-      respuesta = await this.prisma.respuesta.create({
-        data: {
+
+      // Aplicar lógica del factor (solo si no se deseleccionó la respuesta)
+      if (dto.respuestaDada !== -1) {
+        const factorPivot = await prisma.factor.findUnique({
+          where: { id: FactorName.PREGUNTAS_MALAS_PIVOT },
+        });
+        const factorPivote = factorPivot?.value ?? 5;
+        const ultimasRespuestas = await prisma.respuesta.findMany({
+          where: {
+            test: {
+              realizadorId: usuarioId,
+            },
+            preguntaId: dto.preguntaId,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: factorPivote,
+        });
+
+        const todasCorrectas = ultimasRespuestas.every(
+          (respuesta) => respuesta.esCorrecta,
+        );
+
+        if (todasCorrectas && ultimasRespuestas.length === factorPivote) {
+          // Eliminar las respuestas incorrectas de esta pregunta si todas las últimas N fueron correctas
+          await prisma.respuesta.deleteMany({
+            where: {
+              test: {
+                realizadorId: usuarioId,
+                id: {
+                  not: dto.testId,
+                },
+              },
+              preguntaId: dto.preguntaId,
+              esCorrecta: false,
+            },
+          });
+        }
+      }
+
+      // Verificar si el test está completo (dentro de la transacción)
+      const totalPreguntas = await prisma.testPregunta.count({
+        where: {
           testId: dto.testId,
-          preguntaId: dto.preguntaId,
-          respuestaDada: dto.respuestaDada,
-          esCorrecta: esCorrecta,
-          indicePregunta: dto.indicePregunta,
-          estado: dto.omitida ? 'OMITIDA' : 'RESPONDIDA', // Estado dependiendo de si se omitió o no
-          seguridad: dto.seguridad ?? SeguridadAlResponder.CIEN_POR_CIENTO,
-        },
-        include: {
-          pregunta: {
-            select: {
-              respuestaCorrectaIndex: true,
-            },
-          },
         },
       });
-    }
 
-    // Aplicar lógica del factor
-    const factorPivot = await this.prisma.factor.findUnique({
-      where: { id: FactorName.PREGUNTAS_MALAS_PIVOT },
-    });
-    const factorPivote = factorPivot?.value ?? 5;
-    const ultimasRespuestas = await this.prisma.respuesta.findMany({
-      where: {
-        test: {
-          realizadorId: usuarioId,
-        },
-        preguntaId: dto.preguntaId,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: factorPivote,
-    });
-
-    const todasCorrectas = ultimasRespuestas.every(
-      (respuesta) => respuesta.esCorrecta,
-    );
-
-    if (todasCorrectas && ultimasRespuestas.length === factorPivote) {
-      // Eliminar las respuestas incorrectas de esta pregunta si todas las últimas N fueron correctas
-      await this.prisma.respuesta.deleteMany({
+      const totalRespuestas = await prisma.respuesta.count({
         where: {
-          test: {
-            realizadorId: usuarioId,
-            id: {
-              not: dto.testId,
-            },
+          testId: dto.testId,
+        },
+      });
+
+      const testCompletado = totalRespuestas === totalPreguntas;
+      console.log(`Test ${dto.testId}: ${totalRespuestas}/${totalPreguntas} respuestas. Completado: ${testCompletado}`);
+      
+      if (testCompletado) {
+        console.log(`Finalizando test ${dto.testId} automáticamente`);
+        await prisma.test.update({
+          where: {
+            id: dto.testId,
           },
-          preguntaId: dto.preguntaId,
-          esCorrecta: false,
-        },
-      });
-    }
+          data: {
+            status: 'FINALIZADO',
+          },
+        });
+      }
 
-    const totalPreguntas = await this.prisma.testPregunta.count({
-      where: {
-        testId: dto.testId,
-      },
+      return respuesta;
     });
-
-    const totalRespuestas = await this.prisma.respuesta.count({
-      where: {
-        testId: dto.testId,
-      },
-    });
-
-    const testCompletado = totalRespuestas === totalPreguntas;
-    if (testCompletado) {
-      await this.prisma.test.update({
-        where: {
-          id: dto.testId,
-        },
-        data: {
-          status: 'FINALIZADO',
-        },
-      });
-    }
-
-    return respuesta;
   }
 
   public async deleteTest(userId: number, testId: number) {
