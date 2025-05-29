@@ -114,6 +114,7 @@ export class PlanificacionController {
     return this.service.actualizarProgresoSubBloque(
       req.user.id,
       dto.subBloqueId,
+      dto.planificacionId,
       {
         realizado: dto.realizado,
         comentariosAlumno: dto.comentariosAlumno,

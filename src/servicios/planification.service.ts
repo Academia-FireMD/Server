@@ -829,6 +829,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
   public async actualizarProgresoSubBloque(
     alumnoId: number,
     subBloqueId: number,
+    planificacionId: number,
     datosActualizacion: {
       realizado?: boolean;
       comentariosAlumno?: string;
@@ -837,7 +838,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
   ) {
     // Encontrar el subbloque y verificar que pertenece a una planificación asignada al alumno
     const subBloque = await this.prisma.subBloque.findUnique({
-      where: { id: subBloqueId },
+      where: { id: subBloqueId, planificacionId: planificacionId },
       include: {
         planificacion: {
           include: {
@@ -857,7 +858,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
     const asignacion = await this.prisma.asignacionAlumno.findFirst({
       where: {
         alumnoId,
-        planificacionId: subBloque.planificacion.id,
+        planificacionId: planificacionId,
       },
     });
 

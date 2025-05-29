@@ -161,6 +161,10 @@ export class UpdateProgresoSubBloqueDto {
   @IsNotEmpty({ message: 'El ID del subbloque es requerido.' })
   subBloqueId: number;
 
+  @IsInt()
+  @IsNotEmpty({ message: 'El ID de la planificación es requerido.' })
+  planificacionId: number;
+
   @IsBoolean()
   @IsOptional()
   realizado?: boolean;
