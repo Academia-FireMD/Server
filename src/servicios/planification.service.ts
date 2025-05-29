@@ -873,6 +873,7 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
       await this.prisma.alumnoProgresoSubBloque.findFirst({
         where: {
           asignacionAlumnoId: asignacion.planificacionId,
+          asignacionAlumnoAlumnoId: alumnoId,
           subBloqueId,
         },
       });
