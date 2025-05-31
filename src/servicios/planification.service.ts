@@ -1087,10 +1087,11 @@ export class PlanificacionService extends PaginatedService<PlanificacionBloque> 
       );
     }
 
-    // Obtener los eventos personalizados
+    // Obtener los eventos personalizados del alumno específico
     return this.prisma.eventoPersonalizadoAlumno.findMany({
       where: {
         asignacionAlumnoId: planificacionId,
+        asignacionAlumnoAlumnoId: alumnoId,
       },
     });
   }

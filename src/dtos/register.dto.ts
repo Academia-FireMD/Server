@@ -51,8 +51,5 @@ export class RegisterDto {
   woocommerceCustomerId?: string;
 
   @IsOptional()
-  @IsEnum(SuscripcionTipo, {
-    message: 'El tipo de plan seleccionado no es válido',
-  })
   planType?: SuscripcionTipo;
 }
